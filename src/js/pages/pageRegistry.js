@@ -1,4 +1,5 @@
 import { createDashboardPage } from "./DashboardPage.js";
+import { createBudgetsPage } from "./BudgetsPage.js";
 import { createClientsPage } from "./ClientsPage.js";
 import { createCalendarPage } from "./CalendarPage.js";
 import { createCommercialCalendarPage } from "./CommercialCalendarPage.js";
@@ -14,6 +15,7 @@ export const pageRegistry = {
   dashboard: createDashboardPage,
   clientes: createClientsPage,
   reservas: createReservationsPage,
+  orcamentos: createBudgetsPage,
   calendario: createCalendarPage,
   "calendario-comercial": createCommercialCalendarPage,
   marketing: createMarketingPage,
