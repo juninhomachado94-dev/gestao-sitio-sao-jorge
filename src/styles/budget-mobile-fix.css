@@ -1,0 +1,146 @@
+.budget-modal__dialog {
+  max-width: calc(100vw - 48px);
+  overflow-x: hidden;
+}
+
+.budget-form,
+.budget-form__grid,
+.budget-items,
+.budget-items__host,
+.budget-items__table {
+  min-width: 0;
+}
+
+.budget-items__table {
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.budget-items input,
+.budget-items select {
+  min-width: 0;
+}
+
+.budget-margin-buttons {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .budget-modal {
+    align-items: end;
+    padding: 8px;
+  }
+
+  .budget-modal__dialog {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100vh - 16px);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .budget-modal__header {
+    padding: 16px 18px;
+  }
+
+  .budget-items {
+    overflow: visible;
+  }
+
+  .budget-items__table {
+    overflow: visible;
+  }
+
+  .budget-items table,
+  .budget-items thead,
+  .budget-items tbody,
+  .budget-items tr,
+  .budget-items td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .budget-items table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .budget-items thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .budget-items tbody {
+    display: grid;
+    gap: 14px;
+    padding: 14px;
+    background: #fbf8f2;
+  }
+
+  .budget-items tbody tr {
+    padding: 14px;
+    border: 1px solid #e3d8c8;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 10px 28px rgba(16, 37, 28, 0.06);
+  }
+
+  .budget-items td {
+    display: grid;
+    grid-template-columns: minmax(96px, 0.42fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #eee6da;
+    white-space: normal;
+  }
+
+  .budget-items td:last-child {
+    display: flex;
+    justify-content: stretch;
+    border-bottom: 0;
+    padding-top: 14px;
+  }
+
+  .budget-items td:last-child .button {
+    width: 100%;
+  }
+
+  .budget-items td::before {
+    color: #66756b;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    content: "";
+  }
+
+  .budget-items td:nth-child(1)::before { content: "Catálogo"; }
+  .budget-items td:nth-child(2)::before { content: "Item"; }
+  .budget-items td:nth-child(3)::before { content: "Categoria"; }
+  .budget-items td:nth-child(4)::before { content: "Unidade"; }
+  .budget-items td:nth-child(5)::before { content: "Qtd."; }
+  .budget-items td:nth-child(6)::before { content: "Custo unit."; }
+  .budget-items td:nth-child(7)::before { content: "Venda unit."; }
+  .budget-items td:nth-child(8)::before { content: "Margem"; }
+  .budget-items td:nth-child(9)::before { content: "Subtotal custo"; }
+  .budget-items td:nth-child(10)::before { content: "Subtotal venda"; }
+  .budget-items td:nth-child(11)::before { content: "Lucro"; }
+  .budget-items td:nth-child(12)::before { content: none; }
+
+  .budget-margin-buttons {
+    justify-content: flex-start;
+  }
+
+  .budget-margin-buttons__value {
+    width: 100%;
+  }
+
+  .budget-margin-buttons .button {
+    flex: 1 1 calc(50% - 6px);
+  }
+}
