@@ -1,4 +1,5 @@
 const SUPPLIER_CATALOG_STORAGE_KEY = "sitio-sao-jorge-supplier-catalog";
+let supplierCatalogWarning = "";
 
 export const supplierCategories = [
   "Bolo",
@@ -29,15 +30,16 @@ export const supplierUnits = [
 
 export function getSupplierCatalog() {
   const catalog = readSupplierCatalog();
-
   syncSupplierCatalogFromSupabase();
-
   return catalog;
+}
+
+export function getSupplierCatalogWarning() {
+  return supplierCatalogWarning;
 }
 
 export async function loadSupplierCatalog() {
   await syncSupplierCatalogFromSupabase(true);
-
   return readSupplierCatalog();
 }
 
@@ -51,7 +53,6 @@ export async function saveSupplierCatalogItem(item) {
 
   writeSupplierCatalog(nextCatalog);
   await upsertSupplierCatalogItemToSupabase(normalizedItem);
-
   return normalizedItem;
 }
 
@@ -66,7 +67,7 @@ export async function deleteSupplierCatalogItem(itemId) {
 
 export function createEmptySupplierCatalogItem() {
   return normalizeSupplierCatalogItem({
-    id: `fornecedor-${Date.now()}`,
+    id: createSafeId("fornecedor"),
     supplierName: "",
     category: "Outros",
     productName: "",
@@ -83,7 +84,7 @@ export function createEmptySupplierCatalogItem() {
 
 export function normalizeSupplierCatalogItem(item = {}) {
   return {
-    id: item.id || `fornecedor-${Date.now()}`,
+    id: item.id || createSafeId("fornecedor"),
     supplierName: item.supplierName ?? item.supplier_name ?? "",
     category: item.category ?? "Outros",
     productName: item.productName ?? item.product_name ?? "",
@@ -102,7 +103,6 @@ function readSupplierCatalog() {
   try {
     const stored = window.localStorage.getItem(SUPPLIER_CATALOG_STORAGE_KEY);
     const catalog = stored ? JSON.parse(stored) : [];
-
     return Array.isArray(catalog) ? catalog.map(normalizeSupplierCatalogItem) : [];
   } catch (error) {
     console.error("Erro ao ler catálogo de fornecedores local:", error);
@@ -126,8 +126,11 @@ async function syncSupplierCatalogFromSupabase(forceReplace = false) {
 
     if (error) {
       console.error("Erro ao buscar catálogo de fornecedores no Supabase:", error);
+      supplierCatalogWarning = createSupplierCatalogWarning(error);
       return;
     }
+
+    supplierCatalogWarning = "";
 
     if (!Array.isArray(data)) {
       return;
@@ -140,6 +143,7 @@ async function syncSupplierCatalogFromSupabase(forceReplace = false) {
     }
   } catch (error) {
     console.error("Erro ao conectar com Supabase para buscar catálogo de fornecedores:", error);
+    supplierCatalogWarning = "Não foi possível conectar ao banco online de fornecedores.";
   }
 }
 
@@ -156,10 +160,12 @@ async function upsertSupplierCatalogItemToSupabase(item) {
 
     if (error) {
       console.error("Erro ao salvar item de fornecedor no Supabase:", error);
-      window.alert("Erro ao salvar fornecedor/produto no banco online. Ele continuará salvo neste navegador.");
+      supplierCatalogWarning = createSupplierCatalogWarning(error);
+      window.alert(`${supplierCatalogWarning} O item continuará salvo neste navegador.`);
     }
   } catch (error) {
     console.error("Erro ao conectar com Supabase para salvar fornecedor/produto:", error);
+    supplierCatalogWarning = "Não foi possível conectar ao banco online de fornecedores.";
   }
 }
 
@@ -176,21 +182,21 @@ async function deleteSupplierCatalogItemFromSupabase(itemId) {
 
     if (error) {
       console.error("Erro ao excluir item de fornecedor no Supabase:", error);
+      supplierCatalogWarning = createSupplierCatalogWarning(error);
     }
   } catch (error) {
     console.error("Erro ao conectar com Supabase para excluir fornecedor/produto:", error);
+    supplierCatalogWarning = "Não foi possível conectar ao banco online de fornecedores.";
   }
 }
 
 async function getSupabaseClient() {
   const { supabase } = await import("./supabaseClient.js");
-
   return supabase;
 }
 
 function mapSupplierCatalogItemToSupabase(item) {
   const normalizedItem = normalizeSupplierCatalogItem(item);
-
   return {
     id: normalizedItem.id,
     supplier_name: normalizedItem.supplierName,
@@ -221,4 +227,23 @@ function mapSupplierCatalogItemFromSupabase(item) {
     createdAt: item.created_at ?? "",
     updatedAt: item.updated_at ?? "",
   };
+}
+
+function createSupplierCatalogWarning(error) {
+  const message = String(error?.message || "");
+  const code = String(error?.code || "");
+
+  if (code === "42P01" || message.toLowerCase().includes("supplier_catalog")) {
+    return "Tabela de fornecedores ainda não configurada no Supabase.";
+  }
+
+  return "Não foi possível carregar o catálogo de fornecedores no Supabase.";
+}
+
+function createSafeId(prefix) {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
