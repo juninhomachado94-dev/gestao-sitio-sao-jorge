@@ -64,25 +64,18 @@ export const budgetTemplates = [
   {
     id: "personalizado",
     name: "Combo Personalizado",
-    items: [
-      createBudgetItem({ name: "Salão/Sítio", quantity: 1, unitPrice: 0, unitCost: 0 }),
-    ],
+    items: [createBudgetItem({ name: "Salão/Sítio", quantity: 1, unitPrice: 0, unitCost: 0 })],
   },
 ];
 
-let hasLoadedBudgetsFromSupabase = false;
-
 export function getBudgets() {
   const localBudgets = readBudgets();
-
   syncBudgetsFromSupabase();
-
   return localBudgets;
 }
 
 export async function loadBudgets() {
   await syncBudgetsFromSupabase(true);
-
   return readBudgets();
 }
 
@@ -120,7 +113,7 @@ export function createBudgetItem({
   unitCost = 0,
 } = {}) {
   return normalizeBudgetItem({
-    id: crypto.randomUUID(),
+    id: createSafeId("orcamento-item"),
     name,
     category,
     unit,
@@ -152,9 +145,7 @@ export function createEmptyBudget() {
 }
 
 export function normalizeBudget(budget = {}) {
-  const items = Array.isArray(budget.items)
-    ? budget.items.map(normalizeBudgetItem)
-    : [];
+  const items = Array.isArray(budget.items) ? budget.items.map(normalizeBudgetItem) : [];
   const totals = calculateBudgetTotals({
     items,
     discountValue: budget.discountValue ?? budget.discount_value,
@@ -175,14 +166,14 @@ export function normalizeBudget(budget = {}) {
     grossProfit: totals.grossProfit,
     profitMargin: totals.profitMargin,
     discountValue: totals.discountValue,
-    discountPercent: totalSale > 0 ? (effectiveDiscountValue / totalSale) * 100 : 0,
+    discountPercent: totals.discountPercent,
     finalTotal: totals.finalTotal,
     depositValue: totals.depositValue,
     remainingValue: totals.remainingValue,
     status: budgetStatuses.includes(budget.status) ? budget.status : "rascunho",
     notes: budget.notes ?? "",
     createdAt: budget.createdAt ?? budget.created_at ?? new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    updatedAt: budget.updatedAt ?? budget.updated_at ?? new Date().toISOString(),
   };
 }
 
@@ -194,7 +185,7 @@ export function normalizeBudgetItem(item = {}) {
   const subtotalCost = quantity * unitCost;
 
   return {
-    id: item.id || crypto.randomUUID(),
+    id: item.id || createSafeId("orcamento-item"),
     name: item.name ?? item.item ?? "",
     category: item.category ?? "",
     unit: item.unit ?? "unidade",
@@ -239,7 +230,6 @@ function readBudgets() {
   try {
     const stored = window.localStorage.getItem(BUDGETS_STORAGE_KEY);
     const budgets = stored ? JSON.parse(stored) : [];
-
     return Array.isArray(budgets) ? budgets.map(normalizeBudget) : [];
   } catch (error) {
     console.error("Erro ao ler orçamentos locais:", error);
@@ -270,7 +260,6 @@ async function syncBudgetsFromSupabase(forceReplace = false) {
       return;
     }
 
-    hasLoadedBudgetsFromSupabase = true;
     const budgets = data.map(mapBudgetFromSupabase).map(normalizeBudget);
 
     if (forceReplace || budgets.length || !readBudgets().length) {
@@ -322,13 +311,11 @@ async function deleteBudgetFromSupabase(budgetId) {
 
 async function getSupabaseClient() {
   const { supabase } = await import("./supabaseClient.js");
-
   return supabase;
 }
 
 function mapBudgetToSupabase(budget) {
   const normalizedBudget = normalizeBudget(budget);
-
   return {
     id: normalizedBudget.id,
     client_name: normalizedBudget.clientName,
@@ -379,4 +366,12 @@ function mapBudgetFromSupabase(budget) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(Number(value || 0), min), max);
+}
+
+function createSafeId(prefix) {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
