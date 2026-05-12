@@ -75,6 +75,7 @@ export function getDashboardData(referenceDate = new Date()) {
 }
 
 function buildSystemAlerts({ clients, finance, reservations, contracts, selectedMonth, commercialDates }) {
+  const today = startOfDay(new Date());
   const alerts = [
     ...finance.revenues
       .filter((revenue) => (
@@ -92,10 +93,12 @@ function buildSystemAlerts({ clients, finance, reservations, contracts, selected
       .filter((reservation) => (
         reservation.reservationStatus !== "Cancelada"
         && isDateInSelectedMonth(reservation.dataEntrada, selectedMonth)
+        && buildDate(reservation.dataEntrada) >= today
       ))
+      .sort((first, second) => buildDate(first.dataEntrada) - buildDate(second.dataEntrada))
       .map((reservation) => ({
         type: "reservation",
-        message: `Reserva do mês: ${getReservationClientName(reservation, clients)} em ${formatDate(reservation.dataEntrada)}`,
+        message: `Próxima reserva: ${getReservationClientName(reservation, clients)} em ${formatDate(reservation.dataEntrada)}`,
       })),
     ...contracts
       .map((contract) => ({
