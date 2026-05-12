@@ -4,8 +4,10 @@ const BUDGET_META_MARKER = "__SSJ_BUDGET_META__";
 export const budgetStatuses = [
   "rascunho",
   "enviado",
+  "aguardando_resposta",
   "aprovado",
   "recusado",
+  "cancelado",
   "convertido_em_reserva",
 ];
 
@@ -90,15 +92,11 @@ export async function saveBudget(budget) {
 
   writeBudgets(nextBudgets);
   await upsertBudgetToSupabase(normalizedBudget);
-
   return normalizedBudget;
 }
 
 export async function deleteBudget(budgetId) {
-  if (!budgetId) {
-    return;
-  }
-
+  if (!budgetId) return;
   writeBudgets(readBudgets().filter((budget) => budget.id !== budgetId));
   await deleteBudgetFromSupabase(budgetId);
 }
@@ -139,6 +137,7 @@ export function createEmptyBudget() {
     discountPercent: 0,
     depositValue: 0,
     validityDays: 3,
+    flowHistory: createEmptyFlowHistory(),
     status: "rascunho",
     pdfHistory: [],
     notes: "",
@@ -176,6 +175,7 @@ export function normalizeBudget(budget = {}) {
     remainingValue: totals.remainingValue,
     validityDays: Number(budget.validityDays ?? budget.validity_days ?? noteData.meta.validityDays ?? 3) || 3,
     status: budgetStatuses.includes(budget.status) ? budget.status : "rascunho",
+    flowHistory: normalizeFlowHistory(budget.flowHistory ?? budget.flow_history ?? noteData.meta.flowHistory, budget),
     pdfHistory: Array.isArray(budget.pdfHistory ?? budget.pdf_history)
       ? budget.pdfHistory ?? budget.pdf_history
       : Array.isArray(noteData.meta.pdfHistory) ? noteData.meta.pdfHistory : [],
@@ -264,15 +264,9 @@ async function syncBudgetsFromSupabase(forceReplace = false) {
       return;
     }
 
-    if (!Array.isArray(data)) {
-      return;
-    }
-
+    if (!Array.isArray(data)) return;
     const budgets = data.map(mapBudgetFromSupabase).map(normalizeBudget);
-
-    if (forceReplace || budgets.length || !readBudgets().length) {
-      writeBudgets(budgets);
-    }
+    if (forceReplace || budgets.length || !readBudgets().length) writeBudgets(budgets);
   } catch (error) {
     console.error("Erro ao conectar com Supabase para buscar orçamentos:", error);
   }
@@ -288,7 +282,6 @@ async function upsertBudgetToSupabase(budget) {
       .maybeSingle();
 
     console.log("Orçamento salvo no Supabase:", data);
-
     if (error) {
       console.error("Erro ao salvar orçamento no Supabase:", error);
       window.alert("Erro ao salvar orçamento no banco online. Ele continuará salvo neste navegador.");
@@ -308,10 +301,7 @@ async function deleteBudgetFromSupabase(budgetId) {
       .select("id");
 
     console.log("Orçamento removido do Supabase:", data);
-
-    if (error) {
-      console.error("Erro ao excluir orçamento no Supabase:", error);
-    }
+    if (error) console.error("Erro ao excluir orçamento no Supabase:", error);
   } catch (error) {
     console.error("Erro ao conectar com Supabase para excluir orçamento:", error);
   }
@@ -345,6 +335,7 @@ function mapBudgetToSupabase(budget) {
     notes: encodeBudgetNotes(normalizedBudget.notes, {
       validityDays: normalizedBudget.validityDays,
       pdfHistory: normalizedBudget.pdfHistory,
+      flowHistory: normalizedBudget.flowHistory,
     }),
     updated_at: normalizedBudget.updatedAt,
   };
@@ -352,7 +343,6 @@ function mapBudgetToSupabase(budget) {
 
 function mapBudgetFromSupabase(budget) {
   const noteData = parseBudgetNotes(budget.notes ?? "");
-
   return {
     id: budget.id,
     clientName: budget.client_name ?? "",
@@ -374,6 +364,7 @@ function mapBudgetFromSupabase(budget) {
     pdfHistory: Array.isArray(budget.pdf_history)
       ? budget.pdf_history
       : Array.isArray(noteData.meta.pdfHistory) ? noteData.meta.pdfHistory : [],
+    flowHistory: normalizeFlowHistory(budget.flow_history ?? noteData.meta.flowHistory, budget),
     status: budget.status ?? "rascunho",
     notes: noteData.notes,
     createdAt: budget.created_at ?? "",
@@ -384,19 +375,12 @@ function mapBudgetFromSupabase(budget) {
 function parseBudgetNotes(value = "") {
   const notes = String(value || "");
   const markerIndex = notes.indexOf(BUDGET_META_MARKER);
-
-  if (markerIndex === -1) {
-    return { notes, meta: {} };
-  }
+  if (markerIndex === -1) return { notes, meta: {} };
 
   const visibleNotes = notes.slice(0, markerIndex).trim();
   const rawMeta = notes.slice(markerIndex + BUDGET_META_MARKER.length).trim();
-
   try {
-    return {
-      notes: visibleNotes,
-      meta: JSON.parse(rawMeta),
-    };
+    return { notes: visibleNotes, meta: JSON.parse(rawMeta) };
   } catch (error) {
     console.error("Erro ao ler histórico interno do orçamento:", error);
     return { notes: visibleNotes, meta: {} };
@@ -409,14 +393,40 @@ function encodeBudgetNotes(notes = "", meta = {}) {
   return `${cleanNotes}${cleanNotes ? "\n\n" : ""}${BUDGET_META_MARKER}\n${serializedMeta}`;
 }
 
+function createEmptyFlowHistory() {
+  return {
+    createdAt: new Date().toISOString(),
+    sentAt: "",
+    approvedAt: "",
+    refusedAt: "",
+    canceledAt: "",
+    reservationId: "",
+    contractId: "",
+  };
+}
+
+function normalizeFlowHistory(history = {}, budget = {}) {
+  const createdAt = history?.createdAt
+    || history?.created_at
+    || budget.createdAt
+    || budget.created_at
+    || new Date().toISOString();
+  return {
+    createdAt,
+    sentAt: history?.sentAt || history?.sent_at || "",
+    approvedAt: history?.approvedAt || history?.approved_at || "",
+    refusedAt: history?.refusedAt || history?.refused_at || "",
+    canceledAt: history?.canceledAt || history?.canceled_at || "",
+    reservationId: history?.reservationId || history?.reservation_id || "",
+    contractId: history?.contractId || history?.contract_id || "",
+  };
+}
+
 function clamp(value, min, max) {
   return Math.min(Math.max(Number(value || 0), min), max);
 }
 
 function createSafeId(prefix) {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
