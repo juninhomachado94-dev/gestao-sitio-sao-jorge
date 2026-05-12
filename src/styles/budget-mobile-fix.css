@@ -143,4 +143,27 @@
   .budget-margin-buttons .button {
     flex: 1 1 calc(50% - 6px);
   }
+
+  .budgets-list__table-wrapper,
+  .supplier-catalog__table-host,
+  .supplier-catalog__table {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .budgets-list table,
+  .supplier-catalog table {
+    min-width: 760px;
+  }
+
+  .budgets-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .budgets-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
 }
