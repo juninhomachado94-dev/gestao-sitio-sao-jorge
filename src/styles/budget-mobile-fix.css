@@ -25,6 +25,24 @@
   min-width: 0;
 }
 
+.budget-status--aguardando_resposta {
+  color: #92400e;
+  background: #fef9c3;
+}
+
+.budget-status--cancelado {
+  color: #7f1d1d;
+  background: #fee2e2;
+}
+
+.budget-flow-meta {
+  display: block;
+  margin-top: 8px;
+  color: #66756b;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 @media (max-width: 760px) {
   .budget-modal {
     align-items: end;
