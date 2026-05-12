@@ -11,7 +11,14 @@ import {
   normalizeBudgetItem,
   saveBudget,
 } from "../../services/budgetsService.js";
-import { getClients, getReservations, saveClients, saveReservations } from "../../services/dataService.js";
+import {
+  getClients,
+  getContracts,
+  getOwnerSignature,
+  getReservations,
+  saveClients,
+  saveReservations,
+} from "../../services/dataService.js";
 import { formatCurrency } from "../../services/privacyService.js";
 import {
   createEmptySupplierCatalogItem,
@@ -23,7 +30,9 @@ import {
   supplierCategories,
   supplierUnits,
 } from "../../services/supplierCatalogService.js";
+import { getContractTemplates, getStoredContractTemplates } from "./contractTemplatesStore.js";
 import { syncReservationRevenues } from "./financeStore.js";
+import { createContractToken, saveGeneratedContract } from "./generatedContractsStore.js";
 
 const eventTypes = ["Aniversário infantil", "Aniversário adulto", "Confraternização de empresa", "Casamento", "Lazer", "Outro"];
 
@@ -92,16 +101,20 @@ export function createBudgetsPage() {
   }
 
   function createBudgetSummary() {
-    const sent = budgets.filter((budget) => budget.status === "enviado").length;
+    const sent = budgets.filter((budget) => ["enviado", "aguardando_resposta"].includes(budget.status)).length;
     const approved = budgets.filter((budget) => ["aprovado", "convertido_em_reserva"].includes(budget.status)).length;
+    const refused = budgets.filter((budget) => budget.status === "recusado").length;
     const finalTotal = budgets.reduce((sum, budget) => sum + Number(budget.finalTotal || 0), 0);
     const profitTotal = budgets.reduce((sum, budget) => sum + Number(budget.grossProfit || 0), 0);
+    const conversion = budgets.length ? `${((approved / budgets.length) * 100).toFixed(1)}%` : "0.0%";
     return createSummaryGrid([
       ["Orçamentos", budgets.length, "Total cadastrado"],
-      ["Enviados", sent, "Aguardando retorno"],
+      ["Enviados", sent, "Enviados/aguardando retorno"],
       ["Aprovados", approved, "Aprovados/convertidos"],
+      ["Recusados", refused, "Oportunidades perdidas"],
+      ["Taxa de conversão", conversion, "Aprovados sobre total"],
+      ["Lucro estimado", formatCurrency(profitTotal), "Controle interno"],
       ["Valor final", formatCurrency(finalTotal), "Soma das propostas"],
-      ["Lucro bruto", formatCurrency(profitTotal), "Controle interno"],
     ]);
   }
 
@@ -122,7 +135,7 @@ export function createBudgetsPage() {
     items.forEach(([title, value, detail]) => {
       const card = document.createElement("article");
       card.className = "budgets-summary__card";
-      card.innerHTML = `<span>${title}</span><strong>${value}</strong><small>${detail}</small>`;
+      card.innerHTML = `<span>${escapeHtml(title)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(detail)}</small>`;
       wrapper.append(card);
     });
     return wrapper;
@@ -147,7 +160,7 @@ export function createBudgetsPage() {
         <td>${formatCurrency(budget.finalTotal)}</td>
         <td>${formatCurrency(budget.depositValue)}</td>
         <td>${formatCurrency(budget.remainingValue)}</td>
-        <td>${statusBadge(budget.status)}</td>
+        <td>${statusBadge(budget.status)}${flowMeta(budget)}</td>
         <td><div class="budgets-actions">
           <button class="button button--secondary" data-action="edit">Editar</button>
           <button class="button button--secondary" data-action="copy">Copiar resumo</button>
@@ -331,13 +344,23 @@ export function createBudgetsPage() {
   async function handleDeleteBudget(budgetId) { if (!window.confirm("Tem certeza que deseja excluir este orçamento?")) return; await deleteBudget(budgetId); budgets = budgets.filter((budget) => budget.id !== budgetId); render(); }
   async function copyBudgetMessage(budget) { const message = createBudgetMessage(budget); try { await navigator.clipboard.writeText(message); window.alert("Orçamento copiado."); } catch { window.prompt("Copie o orçamento abaixo:", message); } }
   async function generateBudgetPdf(budget) { const updated = normalizeBudget({ ...budget, pdfHistory: [...(Array.isArray(budget.pdfHistory) ? budget.pdfHistory : []), { action: "pdf_generated", generatedAt: new Date().toISOString() }] }); await saveBudget(updated); budgets = upsertById(budgets, updated); render(); openBudgetPdfWindow(updated, { shouldPrint: true }); }
-  async function sendBudgetToWhatsApp(budget) { const phone = sanitizePhone(budget.clientPhone); if (!phone) { window.alert("Telefone do cliente não encontrado."); return; } const updated = normalizeBudget({ ...budget, status: budget.status === "rascunho" ? "enviado" : budget.status }); await saveBudget(updated); budgets = upsertById(budgets, updated); render(); window.open(`https://wa.me/${phone}?text=${encodeURIComponent(createBudgetMessage(updated))}`, "_blank", "noopener,noreferrer"); }
-  async function convertBudgetToReservation(budget) { if (!window.confirm("Deseja transformar este orçamento em reserva? Isso criará cliente/reserva e lançamentos financeiros vinculados.")) return; if (!budget.clientName || !budget.eventDate || !budget.finalTotal) { window.alert("Preencha nome do cliente, data do evento e valor final antes de transformar em reserva."); return; } const clients = getClients(); const client = findOrCreateClient(clients, budget); const reservation = createReservationFromBudget(budget, client); const reservations = getReservations(); if (hasActiveReservationConflict(reservations, reservation)) { window.alert("Já existe uma reserva ativa para esta data."); return; } saveClients(upsertById(clients, client)); saveReservations([reservation, ...reservations]); syncReservationRevenues(reservation, client); const updated = await saveBudget(normalizeBudget({ ...budget, status: "convertido_em_reserva", notes: `${budget.notes || ""}\nConvertido em reserva ${reservation.id}.`.trim() })); budgets = upsertById(budgets, updated); render(); window.alert("Orçamento transformado em reserva com sucesso."); }
+  async function sendBudgetToWhatsApp(budget) { const phone = sanitizePhone(budget.clientPhone); if (!phone) { window.alert("Telefone do cliente não encontrado."); return; } const now = new Date().toISOString(); const updated = normalizeBudget({ ...budget, status: budget.status === "rascunho" ? "aguardando_resposta" : budget.status, flowHistory: { ...budget.flowHistory, sentAt: budget.flowHistory?.sentAt || now } }); await saveBudget(updated); budgets = upsertById(budgets, updated); render(); window.open(`https://wa.me/${phone}?text=${encodeURIComponent(createBudgetMessage(updated))}`, "_blank", "noopener,noreferrer"); }
+  async function convertBudgetToReservation(budget) {
+    if (budget.flowHistory?.reservationId) { window.alert("Este orçamento já foi transformado em reserva."); return; }
+    if (!window.confirm("Deseja transformar este orçamento em reserva? Isso criará cliente/reserva, financeiro e contrato vinculados.")) return;
+    if (!budget.clientName || !budget.eventDate || !budget.finalTotal) { window.alert("Preencha nome do cliente, data do evento e valor final antes de transformar em reserva."); return; }
+    const clients = getClients(); const client = findOrCreateClient(clients, budget); const reservation = createReservationFromBudget(budget, client); const reservations = getReservations();
+    if (hasActiveReservationConflict(reservations, reservation)) { window.alert("Já existe uma reserva ativa para esta data."); return; }
+    const contract = await createGeneratedContractFromBudget({ budget, reservation, client });
+    saveClients(upsertById(clients, client)); saveReservations([reservation, ...reservations]); syncReservationRevenues(reservation, client); if (contract) saveGeneratedContract(contract);
+    const updated = await saveBudget(normalizeBudget({ ...budget, status: "aprovado", flowHistory: { ...budget.flowHistory, approvedAt: budget.flowHistory?.approvedAt || new Date().toISOString(), reservationId: reservation.id, contractId: contract?.id || "" }, notes: `${budget.notes || ""}\nConvertido em reserva ${reservation.id}.${contract?.id ? ` Contrato ${contract.id} gerado automaticamente.` : ""}`.trim() }));
+    budgets = upsertById(budgets, updated); render(); window.alert("Orçamento transformado em reserva com sucesso.");
+  }
 }
 
-function field(name, label, value = "", required = false, type = "text") { return `<label class="budget-field"><span>${label}</span><input name="${name}" type="${type}" value="${escapeHtml(value)}" ${required ? "required" : ""} ${type === "number" ? "min='0' step='0.01'" : ""}></label>`; }
-function selectField(name, label, options, value = "") { return `<label class="budget-field"><span>${label}</span><select name="${name}">${options.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></label>`; }
-function textarea(name, label, value = "") { return `<label class="budget-field budget-field--full"><span>${label}</span><textarea name="${name}" rows="3">${escapeHtml(value)}</textarea></label>`; }
+function field(name, label, value = "", required = false, type = "text") { return `<label class="budget-field"><span>${escapeHtml(label)}</span><input name="${name}" type="${type}" value="${escapeHtml(value)}" ${required ? "required" : ""} ${type === "number" ? "min='0' step='0.01'" : ""}></label>`; }
+function selectField(name, label, options, value = "") { return `<label class="budget-field"><span>${escapeHtml(label)}</span><select name="${name}">${options.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></label>`; }
+function textarea(name, label, value = "") { return `<label class="budget-field budget-field--full"><span>${escapeHtml(label)}</span><textarea name="${name}" rows="3">${escapeHtml(value)}</textarea></label>`; }
 function input(value, type, onInput) { const element = document.createElement("input"); element.type = type; element.value = value ?? ""; if (type === "number") { element.min = "0"; element.step = "0.01"; } element.addEventListener("input", () => onInput(element.value)); return element; }
 function cell(child) { const td = document.createElement("td"); td.append(child); return td; }
 function textCell(text, className = "") { const td = document.createElement("td"); td.textContent = text; if (className) td.className = className; return td; }
@@ -351,14 +374,22 @@ function openBudgetPdfWindow(budget, { shouldPrint = false } = {}) { const popup
 function createBudgetPdfHtml(budget, { shouldPrint = false } = {}) { const items = budget.items.filter((item) => item.name).map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.unit || "unidade")}</td><td>${escapeHtml(item.quantity || 0)}</td><td>${formatCurrency(item.subtotalSale)}</td></tr>`).join(""); return `<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Orçamento - Sítio São Jorge</title><style>*{box-sizing:border-box}body{margin:0;color:#17231c;background:#f8f5ef;font-family:Inter,Arial,sans-serif;line-height:1.5}.page{width:min(900px,calc(100vw - 24px));margin:24px auto;padding:36px;border:1px solid #e3d8c8;border-radius:22px;background:#fff;box-shadow:0 20px 60px rgba(16,37,28,.10)}.header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:2px solid #e3d8c8}.logo{display:inline-flex;align-items:center;justify-content:center;width:54px;height:54px;margin-bottom:12px;border:1px solid #b9955b;border-radius:16px;color:#fff;background:#10251c;font-weight:900}h1,h2,p{margin:0}h1{font-size:2rem}.muted{color:#66756b}.status{align-self:flex-start;padding:8px 14px;border-radius:999px;color:#14532d;background:#dcfce7;font-size:.82rem;font-weight:900}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:26px 0}.card{padding:16px;border:1px solid #e3d8c8;border-radius:16px;background:#fbf8f2}.card span{display:block;color:#66756b;font-size:.75rem;font-weight:900;letter-spacing:.05em;text-transform:uppercase}.card strong{display:block;margin-top:6px;font-size:1.05rem}table{width:100%;margin-top:14px;border-collapse:collapse;border:1px solid #e3d8c8;border-radius:16px;overflow:hidden}th,td{padding:12px 14px;border-bottom:1px solid #eee6da;text-align:left}th{color:#526157;background:#f8f5ef;font-size:.75rem;text-transform:uppercase}.totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:22px}.total-final{color:#fff;background:#2f6b4f;border-color:#2f6b4f}.notes{margin-top:24px;padding:18px;border-left:4px solid #b9955b;border-radius:14px;background:#fbf8f2;white-space:pre-wrap}.footer{margin-top:30px;padding-top:18px;border-top:1px solid #e3d8c8;color:#66756b;font-size:.9rem}.actions{display:flex;justify-content:flex-end;margin:18px auto;width:min(900px,calc(100vw - 24px))}button{border:0;border-radius:12px;background:#2f6b4f;color:#fff;cursor:pointer;font-weight:800;padding:12px 18px}@media print{body{background:#fff}.page{width:100%;margin:0;border:0;box-shadow:none}.actions{display:none}}@media(max-width:640px){.page{padding:22px;border-radius:18px}.header,.grid,.totals{grid-template-columns:1fr;flex-direction:column}h1{font-size:1.55rem}th,td{padding:10px;font-size:.9rem}}</style></head><body><div class="actions"><button onclick="window.print()">Salvar / imprimir PDF</button></div><main class="page"><header class="header"><div><div class="logo">SJ</div><h1>Orçamento - Sítio São Jorge</h1><p class="muted">Proposta comercial para locação e evento</p></div><div class="status">${escapeHtml(formatBudgetStatus(budget.status))}</div></header><section class="grid"><div class="card"><span>Cliente</span><strong>${escapeHtml(budget.clientName || "Não informado")}</strong></div><div class="card"><span>Telefone</span><strong>${escapeHtml(budget.clientPhone || "Não informado")}</strong></div><div class="card"><span>Data do evento</span><strong>${escapeHtml(formatDate(budget.eventDate))}</strong></div><div class="card"><span>Tipo de evento</span><strong>${escapeHtml(budget.eventType || "Não informado")}</strong></div><div class="card"><span>Pessoas</span><strong>${escapeHtml(budget.peopleCount || "Não informado")}</strong></div><div class="card"><span>Validade</span><strong>${escapeHtml(budget.validityDays || 3)} dias</strong></div></section><section><h2>Itens inclusos</h2><table><thead><tr><th>Item</th><th>Unidade</th><th>Qtd.</th><th>Subtotal</th></tr></thead><tbody>${items || `<tr><td colspan="4">Itens a definir</td></tr>`}</tbody></table></section><section class="totals"><div class="card"><span>Total</span><strong>${formatCurrency(budget.finalTotal)}</strong></div><div class="card"><span>Entrada/sinal</span><strong>${formatCurrency(budget.depositValue)}</strong></div><div class="card total-final"><span>Restante</span><strong>${formatCurrency(budget.remainingValue)}</strong></div></section>${budget.notes ? `<section class="notes"><strong>Observações</strong><br>${escapeHtml(budget.notes)}</section>` : ""}<footer class="footer">Orçamento válido por ${escapeHtml(budget.validityDays || 3)} dias. Valores sujeitos à disponibilidade da data.</footer></main>${shouldPrint ? `<script>window.addEventListener("load",()=>setTimeout(()=>window.print(),300));</script>` : ""}</body></html>`; }
 function findOrCreateClient(clients, budget) { const phone = sanitizePhoneDigits(budget.clientPhone); const existing = clients.find((client) => sanitizePhoneDigits(client.phone) === phone || client.name?.trim().toLowerCase() === budget.clientName.trim().toLowerCase()); return existing || { id: createSafeId("cliente"), name: budget.clientName, phone: budget.clientPhone, document: "", address: "", city: "", notes: `Criado a partir do orçamento ${budget.id}.` }; }
 function createReservationFromBudget(budget, client) { return { id: `reserva-${Date.now()}`, clientId: client.id, clientName: client.name, dataEntrada: budget.eventDate, horaEntrada: "09:00", dataSaida: budget.eventDate, horaSaida: "18:00", eventType: budget.eventType || "Outro", totalValue: Number(budget.finalTotal || 0), depositValue: Number(budget.depositValue || 0), remainingValue: Number(budget.remainingValue || 0), paymentMethod: "Pix", paymentStatus: Number(budget.depositValue || 0) > 0 ? "Sinal pago" : "Pendente", reservationStatus: "Pré-reserva", notes: `Criada a partir do orçamento ${budget.id}. ${budget.notes || ""}`.trim() }; }
+async function createGeneratedContractFromBudget({ budget, reservation, client }) { try { const templates = await loadContractTemplates(); const template = templates.find((item) => item.status === "padrão") || templates[0]; if (!template?.content) return null; const ownerSignature = getOwnerSignature(); const content = fillTemplate(template.content, buildContractVariables(reservation, client, Boolean(ownerSignature))); return { id: `contrato-${Date.now()}`, token: createContractToken(getContracts()), clientId: client.id, clientName: client.name, reservationId: reservation.id, contractModelId: template.id, templateId: template.id, client: client.name, reservation: `${formatDate(reservation.dataEntrada)} ${reservation.horaEntrada} até ${formatDate(reservation.dataSaida)} ${reservation.horaSaida}`, status: "gerado", generatedAt: new Date().toISOString(), content, contractText: content, ownerSignature, clientPhone: client.phone, source: "orcamento", budgetId: budget.id }; } catch (error) { console.error("Erro ao gerar contrato automático do orçamento:", error); return null; } }
+async function loadContractTemplates() { try { const templates = await getContractTemplates(); return Array.isArray(templates) && templates.length ? templates : getStoredContractTemplates(); } catch { return getStoredContractTemplates(); } }
+function fillTemplate(content, variables) { return Object.entries(variables).reduce((text, [key, value]) => text.replaceAll(key, value), content || ""); }
+function buildContractVariables(reservation, client, hasOwnerSignature) { return { "{{nome_cliente}}": client.name || "Não informado", "{{cpf_cliente}}": getClientDocument(client) || "Não informado", "{{telefone_cliente}}": client.phone || "Não informado", "{{data_entrada}}": formatDate(reservation.dataEntrada), "{{hora_entrada}}": reservation.horaEntrada || "Não informado", "{{data_saida}}": formatDate(reservation.dataSaida), "{{hora_saida}}": reservation.horaSaida || "Não informado", "{{tipo_evento}}": reservation.eventType || "Não informado", "{{valor_total}}": formatPlainMoney(reservation.totalValue), "{{valor_sinal}}": formatPlainMoney(reservation.depositValue), "{{valor_restante}}": formatPlainMoney(reservation.remainingValue), "{{forma_pagamento}}": reservation.paymentMethod || "Pix", "{{status_pagamento}}": reservation.paymentStatus || "Pendente", "{{nome_sitio}}": "Sítio São Jorge", "{{assinatura_proprietario}}": hasOwnerSignature ? "Assinatura do locador anexada" : "Assinatura do locador pendente", "{{assinatura_cliente}}": "Assinatura do locatário pendente", "{{data_assinatura}}": "Data da assinatura pendente" }; }
+function getClientDocument(client) { return client?.cpfCnpj || client?.cpf_cnpj || client?.document || client?.cpf || ""; }
+function formatPlainMoney(value) { return Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function hasActiveReservationConflict(reservations, nextReservation) { return reservations.some((reservation) => { if (reservation.reservationStatus === "Cancelada") return false; const start = createDateTime(reservation.dataEntrada, reservation.horaEntrada); const end = createDateTime(reservation.dataSaida, reservation.horaSaida); const nextStart = createDateTime(nextReservation.dataEntrada, nextReservation.horaEntrada); const nextEnd = createDateTime(nextReservation.dataSaida, nextReservation.horaSaida); return start && end && nextStart && nextEnd && nextStart < end && nextEnd > start; }); }
 function createDateTime(date, time) { if (!date || !time) return null; const value = new Date(`${date}T${time}`); return Number.isNaN(value.getTime()) ? null : value; }
 function validateBudget(budget) { if (!budget.clientName) return "Informe o nome do cliente."; if (!budget.eventDate) return "Informe a data do evento."; if (!budget.items.some((item) => item.name && Number(item.quantity) > 0)) return "Adicione pelo menos um item válido ao orçamento."; return ""; }
 function calculateSalePriceFromMargin(cost, margin) { return Number(cost || 0) * (1 + Number(margin || 0) / 100); }
 function statusBadge(status) { return `<span class="budget-status budget-status--${status}">${formatBudgetStatus(status)}</span>`; }
-function formatBudgetStatus(status) { const labels = { rascunho: "Rascunho", enviado: "Enviado", aprovado: "Aprovado", recusado: "Recusado", convertido_em_reserva: "Convertido em reserva" }; return labels[status] || status; }
+function flowMeta(budget) { const history = budget.flowHistory || {}; const details = [history.createdAt ? `Criado: ${formatDateTime(history.createdAt)}` : "", history.sentAt ? `Enviado: ${formatDateTime(history.sentAt)}` : "", history.approvedAt ? `Aprovado: ${formatDateTime(history.approvedAt)}` : ""].filter(Boolean); return details.length ? `<small class="budget-flow-meta">${escapeHtml(details.join(" | "))}</small>` : ""; }
+function formatBudgetStatus(status) { const labels = { rascunho: "Rascunho", enviado: "Enviado", aguardando_resposta: "Aguardando resposta", aprovado: "Aprovado", recusado: "Recusado", cancelado: "Cancelado", convertido_em_reserva: "Convertido em reserva" }; return labels[status] || status; }
 function parseBudgetStatus(label) { return budgetStatuses.find((status) => formatBudgetStatus(status) === label) || "rascunho"; }
 function formatDate(value) { if (!value) return "Não informado"; const [year, month, day] = value.split("-"); return year && month && day ? `${day}/${month}/${year}` : value; }
+function formatDateTime(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? formatDate(value) : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); }
 function sanitizePhone(value) { const digits = sanitizePhoneDigits(value); return digits ? (digits.startsWith("55") ? digits : `55${digits}`) : ""; }
 function sanitizePhoneDigits(value) { return String(value || "").replace(/\D/g, ""); }
 function upsertById(items, nextItem) { return items.some((item) => item.id === nextItem.id) ? items.map((item) => item.id === nextItem.id ? nextItem : item) : [nextItem, ...items]; }
