@@ -1,4 +1,5 @@
 const BUDGETS_STORAGE_KEY = "sitio-sao-jorge-budgets";
+const BUDGET_META_MARKER = "__SSJ_BUDGET_META__";
 
 export const budgetStatuses = [
   "rascunho",
@@ -137,7 +138,9 @@ export function createEmptyBudget() {
     discountValue: 0,
     discountPercent: 0,
     depositValue: 0,
+    validityDays: 3,
     status: "rascunho",
+    pdfHistory: [],
     notes: "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -145,6 +148,7 @@ export function createEmptyBudget() {
 }
 
 export function normalizeBudget(budget = {}) {
+  const noteData = parseBudgetNotes(budget.notes ?? "");
   const items = Array.isArray(budget.items) ? budget.items.map(normalizeBudgetItem) : [];
   const totals = calculateBudgetTotals({
     items,
@@ -170,8 +174,12 @@ export function normalizeBudget(budget = {}) {
     finalTotal: totals.finalTotal,
     depositValue: totals.depositValue,
     remainingValue: totals.remainingValue,
+    validityDays: Number(budget.validityDays ?? budget.validity_days ?? noteData.meta.validityDays ?? 3) || 3,
     status: budgetStatuses.includes(budget.status) ? budget.status : "rascunho",
-    notes: budget.notes ?? "",
+    pdfHistory: Array.isArray(budget.pdfHistory ?? budget.pdf_history)
+      ? budget.pdfHistory ?? budget.pdf_history
+      : Array.isArray(noteData.meta.pdfHistory) ? noteData.meta.pdfHistory : [],
+    notes: noteData.notes,
     createdAt: budget.createdAt ?? budget.created_at ?? new Date().toISOString(),
     updatedAt: budget.updatedAt ?? budget.updated_at ?? new Date().toISOString(),
   };
@@ -334,12 +342,17 @@ function mapBudgetToSupabase(budget) {
     deposit_value: normalizedBudget.depositValue,
     remaining_value: normalizedBudget.remainingValue,
     status: normalizedBudget.status,
-    notes: normalizedBudget.notes,
+    notes: encodeBudgetNotes(normalizedBudget.notes, {
+      validityDays: normalizedBudget.validityDays,
+      pdfHistory: normalizedBudget.pdfHistory,
+    }),
     updated_at: normalizedBudget.updatedAt,
   };
 }
 
 function mapBudgetFromSupabase(budget) {
+  const noteData = parseBudgetNotes(budget.notes ?? "");
+
   return {
     id: budget.id,
     clientName: budget.client_name ?? "",
@@ -357,11 +370,43 @@ function mapBudgetFromSupabase(budget) {
     finalTotal: Number(budget.final_total ?? 0),
     depositValue: Number(budget.deposit_value ?? 0),
     remainingValue: Number(budget.remaining_value ?? 0),
+    validityDays: Number(budget.validity_days ?? noteData.meta.validityDays ?? 3) || 3,
+    pdfHistory: Array.isArray(budget.pdf_history)
+      ? budget.pdf_history
+      : Array.isArray(noteData.meta.pdfHistory) ? noteData.meta.pdfHistory : [],
     status: budget.status ?? "rascunho",
-    notes: budget.notes ?? "",
+    notes: noteData.notes,
     createdAt: budget.created_at ?? "",
     updatedAt: budget.updated_at ?? "",
   };
+}
+
+function parseBudgetNotes(value = "") {
+  const notes = String(value || "");
+  const markerIndex = notes.indexOf(BUDGET_META_MARKER);
+
+  if (markerIndex === -1) {
+    return { notes, meta: {} };
+  }
+
+  const visibleNotes = notes.slice(0, markerIndex).trim();
+  const rawMeta = notes.slice(markerIndex + BUDGET_META_MARKER.length).trim();
+
+  try {
+    return {
+      notes: visibleNotes,
+      meta: JSON.parse(rawMeta),
+    };
+  } catch (error) {
+    console.error("Erro ao ler histórico interno do orçamento:", error);
+    return { notes: visibleNotes, meta: {} };
+  }
+}
+
+function encodeBudgetNotes(notes = "", meta = {}) {
+  const cleanNotes = parseBudgetNotes(notes).notes;
+  const serializedMeta = JSON.stringify(meta);
+  return `${cleanNotes}${cleanNotes ? "\n\n" : ""}${BUDGET_META_MARKER}\n${serializedMeta}`;
 }
 
 function clamp(value, min, max) {
