@@ -132,7 +132,10 @@ function getStoredClients() {
 }
 
 function buildMonthReservationsRows(reservations, clients) {
+  const today = startOfDay(new Date());
+
   return reservations
+    .filter((reservation) => buildDate(reservation.dataEntrada) >= today)
     .sort((first, second) => buildDate(first.dataEntrada) - buildDate(second.dataEntrada))
     .slice(0, 5)
     .map((reservation) => [
@@ -239,6 +242,10 @@ function startOfMonth(date) {
 
 function buildDate(dateValue) {
   return new Date(`${dateValue}T00:00:00`);
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function getReservationClientName(reservation, clients = []) {
