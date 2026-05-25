@@ -1,1 +1,1 @@
-export const PUBLIC_APP_URL = "https://gestaositiosaojorge.netlify.app";
+export const PUBLIC_APP_URL = "https://gestao-sitio-sao-jorge.vercel.app";
