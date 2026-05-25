@@ -1,0 +1,153 @@
+.finance-month-controls {
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.finance-month-controls .is-accumulated-active {
+  background: #e7f2ec;
+  border-color: #2f6b4f;
+  color: #17442f;
+  box-shadow: 0 10px 24px rgba(47, 107, 79, 0.12);
+}
+
+.finance-accumulated-panel {
+  display: grid;
+  gap: 1.25rem;
+  margin: 1.5rem 0;
+}
+
+.finance-accumulated-header {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.finance-accumulated-title,
+.finance-accumulated-chart-title {
+  margin: 0;
+  color: #17231c;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.finance-accumulated-intro,
+.finance-accumulated-empty {
+  margin: 0;
+  color: #66756b;
+  font-size: 0.92rem;
+}
+
+.finance-accumulated-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.finance-accumulated-card,
+.finance-accumulated-chart,
+.finance-accumulated-annual {
+  border: 1px solid #e3d8c8;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(23, 35, 28, 0.07);
+}
+
+.finance-accumulated-card {
+  padding: 1rem;
+}
+
+.finance-accumulated-label {
+  margin: 0 0 0.45rem;
+  color: #66756b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.finance-accumulated-value {
+  color: #17231c;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.finance-accumulated-chart,
+.finance-accumulated-annual {
+  padding: 1.1rem;
+}
+
+.finance-accumulated-chart-list {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.finance-accumulated-chart-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 170px) 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.finance-accumulated-month {
+  color: #17231c;
+  font-weight: 700;
+}
+
+.finance-accumulated-bars {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.finance-accumulated-bar-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) minmax(160px, auto);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.finance-accumulated-bar {
+  display: block;
+  min-height: 0.7rem;
+  border-radius: 999px;
+}
+
+.finance-accumulated-bar--revenue {
+  background: #2f6b4f;
+}
+
+.finance-accumulated-bar--expense {
+  background: #b9955b;
+}
+
+.finance-accumulated-bar--profit {
+  background: #22c55e;
+}
+
+.finance-accumulated-bar-row small {
+  color: #66756b;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.finance-accumulated-annual {
+  display: grid;
+  gap: 0.9rem;
+}
+
+@media (max-width: 1100px) {
+  .finance-accumulated-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .finance-accumulated-cards,
+  .finance-accumulated-chart-row,
+  .finance-accumulated-bar-row {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-accumulated-bar-row small {
+    white-space: normal;
+  }
+}
