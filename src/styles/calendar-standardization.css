@@ -1,0 +1,383 @@
+/* Padronização visual dos calendários de reservas e comercial. */
+.calendar-shell,
+.calendar-page__calendar,
+.commercial-calendar {
+  border: 1px solid rgba(227, 216, 200, 0.9);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(251, 250, 247, 0.9)),
+    #ffffff;
+  box-shadow: 0 16px 38px rgba(23, 35, 28, 0.07);
+}
+
+.calendar-page__calendar,
+.commercial-calendar,
+.commercial-opportunities {
+  padding: clamp(16px, 2.2vw, 24px);
+}
+
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.calendar-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #66756b;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.calendar-status-dot,
+.calendar-legend__dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.calendar-grid,
+.commercial-calendar__weekdays,
+.commercial-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calendar-grid__weekday,
+.commercial-calendar__weekdays span {
+  padding: 0 8px 6px;
+  color: #66756b;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-day-card,
+.calendar-day,
+.commercial-day {
+  display: grid;
+  min-height: 106px;
+  align-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(227, 216, 200, 0.72);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfaf7 100%);
+  color: #17231c;
+  text-align: left;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.calendar-day:hover,
+.calendar-day:focus-visible,
+.commercial-day:hover {
+  border-color: rgba(47, 107, 79, 0.5);
+  outline: none;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(17, 24, 39, 0.09);
+}
+
+.calendar-day.is-selected {
+  border-color: #2f6b4f;
+  box-shadow: 0 0 0 3px rgba(47, 107, 79, 0.14), 0 14px 30px rgba(17, 24, 39, 0.09);
+}
+
+.calendar-day-number,
+.calendar-day__number,
+.commercial-day__number {
+  display: block;
+  color: #17231c;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.calendar-badge,
+.calendar-day__badge,
+.commercial-badge {
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commercial-calendar__header,
+.commercial-opportunities__header {
+  margin-bottom: 16px;
+}
+
+.commercial-calendar__header h3,
+.commercial-opportunities__header h3 {
+  margin: 0;
+  color: #17231c;
+  font-size: 1rem;
+}
+
+.commercial-opportunities {
+  border: 1px solid rgba(227, 216, 200, 0.9);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 16px 38px rgba(23, 35, 28, 0.07);
+}
+
+.commercial-opportunity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(227, 216, 200, 0.88);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(23, 35, 28, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.commercial-opportunity:hover {
+  transform: translateY(-1px);
+  border-color: rgba(185, 149, 91, 0.42);
+  box-shadow: 0 18px 40px rgba(23, 35, 28, 0.08);
+}
+
+.commercial-opportunity--alta {
+  border-left: 4px solid #22c55e;
+}
+
+.commercial-opportunity--media {
+  border-left: 4px solid #facc15;
+}
+
+.commercial-opportunity--baixa {
+  border-left: 4px solid #ef4444;
+}
+
+.commercial-opportunity__date {
+  display: grid;
+  min-width: 64px;
+  place-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(47, 107, 79, 0.16);
+  border-radius: 16px;
+  background: #e7f2ec;
+  color: #14532d;
+  text-align: center;
+}
+
+.commercial-opportunity__date strong {
+  color: inherit;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.commercial-opportunity__date span {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.commercial-opportunity__status {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.commercial-opportunity__status--reserved,
+.commercial-opportunity__status--promoted {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.commercial-opportunity__status--open {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+@media (max-width: 768px) {
+  .calendar-page__header,
+  .calendar-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .calendar-controls,
+  .commercial-month-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .calendar-controls .button,
+  .commercial-month-controls .button,
+  .commercial-opportunity__actions .button {
+    width: 100%;
+    min-height: 46px;
+    padding-inline: 10px;
+  }
+
+  .calendar-controls__month {
+    grid-column: 1 / -1;
+    order: -1;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(227, 216, 200, 0.9);
+    border-radius: 14px;
+    background: #fbfaf7;
+  }
+
+  .calendar-page__shell {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-page__calendar {
+    padding: 14px;
+  }
+
+  .calendar-legend {
+    gap: 8px;
+  }
+
+  .calendar-legend__item {
+    padding: 7px 9px;
+    border: 1px solid rgba(227, 216, 200, 0.68);
+    border-radius: 999px;
+    background: #ffffff;
+    font-size: 0.78rem;
+  }
+
+  .calendar-grid--reservations,
+  .calendar-page__calendar .calendar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-grid--reservations .calendar-grid__weekday,
+  .calendar-page__calendar .calendar-grid__weekday {
+    display: none;
+  }
+
+  .calendar-day-card,
+  .calendar-day,
+  .commercial-day {
+    min-height: auto;
+  }
+
+  .calendar-grid--reservations .calendar-day,
+  .calendar-page__calendar .calendar-day {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    padding: 14px;
+  }
+
+  .calendar-grid--reservations .calendar-day.is-muted,
+  .calendar-page__calendar .calendar-day.is-muted {
+    display: none;
+  }
+
+  .calendar-grid--reservations .calendar-day__number,
+  .calendar-page__calendar .calendar-day__number {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    border: 1px solid rgba(47, 107, 79, 0.14);
+    border-radius: 14px;
+    background: #e7f2ec;
+    color: #14532d;
+  }
+
+  .calendar-grid--reservations .calendar-day__badge,
+  .calendar-page__calendar .calendar-day__badge {
+    justify-self: start;
+    min-height: 34px;
+  }
+
+  .commercial-page {
+    min-height: auto;
+    padding: 16px;
+    border-radius: 18px;
+    overflow: visible;
+  }
+
+  .commercial-page__header {
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+
+  .commercial-page__title {
+    font-size: 2rem;
+  }
+
+  .commercial-page__intro {
+    margin-top: 10px;
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  .commercial-month-controls .button--primary {
+    grid-column: 1 / -1;
+  }
+
+  .commercial-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .commercial-calendar {
+    display: none;
+  }
+
+  .commercial-opportunities {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .commercial-opportunity {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .commercial-opportunity__actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    justify-content: stretch;
+  }
+}
+
+@media (max-width: 560px) {
+  .commercial-summary,
+  .commercial-month-controls,
+  .commercial-opportunity__actions,
+  .commercial-opportunity {
+    grid-template-columns: 1fr;
+  }
+
+  .commercial-opportunity__date {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: auto auto;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .commercial-opportunity__date span {
+    margin-top: 0;
+  }
+}
