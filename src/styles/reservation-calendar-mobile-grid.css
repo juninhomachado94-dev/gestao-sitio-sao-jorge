@@ -1,33 +1,97 @@
-/* Mantém o Calendário de reservas em grade mensal também no celular. */
+/* Mantém o Calendário de reservas em grade mensal no celular, com proporção compacta. */
 @media (max-width: 768px) {
+  .calendar-page {
+    padding: 14px;
+  }
+
+  .calendar-page__header {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .calendar-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .calendar-controls__month {
+    grid-column: 1 / -1;
+    min-width: 0;
+    min-height: 38px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+  }
+
+  .calendar-controls .button {
+    min-height: 40px;
+    padding: 0 8px;
+    border-radius: 12px;
+    font-size: 0.82rem;
+  }
+
+  .calendar-page__shell {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
   .calendar-page__calendar {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    padding: 10px;
+    overflow-x: visible;
+  }
+
+  .calendar-legend {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .calendar-legend__item {
+    gap: 5px;
+    padding: 5px 7px;
+    font-size: 0.68rem;
+    line-height: 1;
+  }
+
+  .calendar-legend__dot,
+  .calendar-status-dot {
+    width: 8px;
+    height: 8px;
   }
 
   .calendar-page__calendar .calendar-grid,
   .calendar-grid--reservations {
-    min-width: 760px;
-    grid-template-columns: repeat(7, minmax(96px, 1fr)) !important;
+    min-width: 0;
+    width: 100%;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 4px;
   }
 
   .calendar-page__calendar .calendar-grid__weekday,
   .calendar-grid--reservations .calendar-grid__weekday {
     display: block !important;
+    padding: 0 0 4px;
+    font-size: 0.58rem;
+    letter-spacing: 0;
   }
 
   .calendar-page__calendar .calendar-day,
   .calendar-grid--reservations .calendar-day {
     display: grid !important;
     grid-template-columns: 1fr !important;
-    min-height: 106px;
-    align-items: initial;
+    min-height: 78px;
     align-content: space-between;
+    align-items: initial;
+    gap: 5px;
+    padding: 7px 5px;
+    border-radius: 10px;
   }
 
   .calendar-page__calendar .calendar-day.is-muted,
   .calendar-grid--reservations .calendar-day.is-muted {
     display: grid !important;
+    opacity: 0.45;
   }
 
   .calendar-page__calendar .calendar-day__number,
@@ -39,11 +103,63 @@
     border-radius: 0;
     background: transparent;
     color: #17231c;
+    font-size: 0.82rem;
+    line-height: 1;
   }
 
   .calendar-page__calendar .calendar-day__badge,
   .calendar-grid--reservations .calendar-day__badge {
     justify-self: start;
-    min-height: 30px;
+    max-width: 100%;
+    min-height: 22px;
+    padding: 4px 5px;
+    gap: 3px;
+    font-size: 0.58rem;
+    line-height: 1;
+  }
+
+  .calendar-page__calendar .status-dot,
+  .calendar-grid--reservations .status-dot {
+    width: 6px;
+    height: 6px;
+    box-shadow: none;
+  }
+
+  .calendar-page__calendar .status-icon,
+  .calendar-grid--reservations .status-icon {
+    width: 8px;
+    height: 8px;
+    font-size: 0.5rem;
+  }
+
+  .calendar-details {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 390px) {
+  .calendar-page {
+    padding: 10px;
+  }
+
+  .calendar-page__calendar {
+    padding: 8px;
+  }
+
+  .calendar-page__calendar .calendar-grid,
+  .calendar-grid--reservations {
+    gap: 3px;
+  }
+
+  .calendar-page__calendar .calendar-day,
+  .calendar-grid--reservations .calendar-day {
+    min-height: 70px;
+    padding: 6px 4px;
+  }
+
+  .calendar-page__calendar .calendar-day__badge,
+  .calendar-grid--reservations .calendar-day__badge {
+    padding: 3px 4px;
+    font-size: 0.52rem;
   }
 }
