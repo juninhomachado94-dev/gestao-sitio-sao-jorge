@@ -1,0 +1,49 @@
+/* Mantém o Calendário de reservas em grade mensal também no celular. */
+@media (max-width: 768px) {
+  .calendar-page__calendar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .calendar-page__calendar .calendar-grid,
+  .calendar-grid--reservations {
+    min-width: 760px;
+    grid-template-columns: repeat(7, minmax(96px, 1fr)) !important;
+  }
+
+  .calendar-page__calendar .calendar-grid__weekday,
+  .calendar-grid--reservations .calendar-grid__weekday {
+    display: block !important;
+  }
+
+  .calendar-page__calendar .calendar-day,
+  .calendar-grid--reservations .calendar-day {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    min-height: 106px;
+    align-items: initial;
+    align-content: space-between;
+  }
+
+  .calendar-page__calendar .calendar-day.is-muted,
+  .calendar-grid--reservations .calendar-day.is-muted {
+    display: grid !important;
+  }
+
+  .calendar-page__calendar .calendar-day__number,
+  .calendar-grid--reservations .calendar-day__number {
+    display: block !important;
+    width: auto;
+    height: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #17231c;
+  }
+
+  .calendar-page__calendar .calendar-day__badge,
+  .calendar-grid--reservations .calendar-day__badge {
+    justify-self: start;
+    min-height: 30px;
+  }
+}
