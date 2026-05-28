@@ -1,10 +1,5 @@
 {
   "version": 2,
-  "name": "gestao-sitio-sao-jorge",
-  "alias": [
-    "gestao-sitio-sao-jorge.vercel.app"
-  ],
-  "public": true,
   "rewrites": [
     {
       "source": "/(.*)",
