@@ -2,7 +2,6 @@ import {
   findContractByToken,
   getContracts,
   saveContract,
-  saveContractAsync,
   saveContracts,
 } from "../../services/dataService.js";
 
@@ -55,38 +54,8 @@ export function updateGeneratedContractByToken(token, updater) {
   return updatedContracts.find((contract) => contract.token === token);
 }
 
-export async function updateGeneratedContractByTokenAsync(token, updater) {
-  const contracts = getGeneratedContracts();
-  let updatedContract = null;
-
-  contracts.forEach((contract) => {
-    if (contract.token === token) {
-      updatedContract = updater(contract);
-    }
-  });
-
-  if (!updatedContract) {
-    const remoteContract = await findContractByToken(token);
-
-    if (remoteContract) {
-      updatedContract = updater(remoteContract);
-    }
-  }
-
-  if (updatedContract) {
-    await saveContractAsync(updatedContract);
-    return updatedContract;
-  }
-
-  return null;
-}
-
 export function saveGeneratedContract(contract) {
   saveContract(contract);
-}
-
-export async function saveGeneratedContractAsync(contract) {
-  return saveContractAsync(contract);
 }
 
 export function createContractToken(existingContracts = []) {
@@ -98,10 +67,6 @@ export function createContractToken(existingContracts = []) {
   }
 
   return token;
-}
-
-export function createContractId() {
-  return createToken();
 }
 
 function ensureContractTokens(contracts) {
@@ -135,5 +100,5 @@ function createToken() {
     return window.crypto.randomUUID();
   }
 
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  return `contrato-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 }
