@@ -7,8 +7,7 @@ import {
 
 export function getGeneratedContracts() {
   const contracts = getContracts();
-
-  const normalizedContracts = ensureContractTokens(contracts);
+  const normalizedContracts = ensureContractIdentities(contracts);
 
   if (normalizedContracts.changed) {
     saveGeneratedContracts(normalizedContracts.contracts);
@@ -19,7 +18,7 @@ export function getGeneratedContracts() {
 
 export function saveGeneratedContracts(contracts) {
   try {
-    saveContracts(contracts);
+    saveContracts(ensureContractIdentities(contracts).contracts);
   } catch {
     // Mantém a sessão funcionando mesmo se o armazenamento local estiver indisponível.
   }
@@ -42,9 +41,14 @@ export async function findGeneratedContractByTokenAsync(token) {
 export function updateGeneratedContractByToken(token, updater) {
   const contracts = getGeneratedContracts();
   let updatedContract = null;
-  const updatedContracts = contracts.map((contract) => (
-    contract.token === token ? (updatedContract = updater(contract)) : contract
-  ));
+  const updatedContracts = contracts.map((contract) => {
+    if (contract.token !== token) {
+      return contract;
+    }
+
+    updatedContract = normalizeContractIdentity(updater(contract));
+    return updatedContract;
+  });
 
   if (updatedContract) {
     saveContract(updatedContract);
@@ -55,7 +59,9 @@ export function updateGeneratedContractByToken(token, updater) {
 }
 
 export function saveGeneratedContract(contract) {
-  saveContract(contract);
+  const normalizedContract = normalizeContractIdentity(contract);
+  saveContract(normalizedContract);
+  return normalizedContract;
 }
 
 export function createContractToken(existingContracts = []) {
@@ -69,29 +75,38 @@ export function createContractToken(existingContracts = []) {
   return token;
 }
 
-function ensureContractTokens(contracts) {
+function ensureContractIdentities(contracts) {
   const usedTokens = new Set();
   let changed = false;
 
-  const contractsWithTokens = contracts.map((contract) => {
-    let token = contract.token;
+  const normalizedContracts = contracts.map((contract) => {
+    const normalizedContract = normalizeContractIdentity(contract, usedTokens);
 
-    if (!token || usedTokens.has(token)) {
-      token = createContractToken([...contracts, ...Array.from(usedTokens).map((usedToken) => ({ token: usedToken }))]);
+    if (normalizedContract.id !== contract.id || normalizedContract.token !== contract.token) {
       changed = true;
     }
 
-    usedTokens.add(token);
-
-    return {
-      ...contract,
-      token,
-    };
+    usedTokens.add(normalizedContract.token);
+    return normalizedContract;
   });
 
   return {
-    contracts: contractsWithTokens,
+    contracts: normalizedContracts,
     changed,
+  };
+}
+
+function normalizeContractIdentity(contract, usedTokens = new Set()) {
+  let token = contract.token;
+
+  if (!token || usedTokens.has(token)) {
+    token = createContractToken(Array.from(usedTokens).map((usedToken) => ({ token: usedToken })));
+  }
+
+  return {
+    ...contract,
+    id: isUuid(contract.id) ? contract.id : token,
+    token,
   };
 }
 
@@ -100,5 +115,9 @@ function createToken() {
     return window.crypto.randomUUID();
   }
 
-  return `contrato-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? ""));
 }
