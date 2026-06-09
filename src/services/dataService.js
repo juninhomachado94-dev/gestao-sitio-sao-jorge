@@ -861,7 +861,7 @@ async function findOnlineContractByToken(token) {
     }
 
     const contract = mapContractFromSupabase(data);
-    saveContract(contract);
+    storeContractLocally(contract);
 
     return contract;
   } catch (error) {
