@@ -1,13 +1,14 @@
 import { createStatusBadge, getStatusClass } from "../components/StatusBadge.js";
 import { getClients, getContracts, getReservations } from "../../services/dataService.js";
 import { formatCurrency } from "../../services/privacyService.js";
+import { filterValidReservations } from "../../services/recordIntegrityService.js";
 
 const statusLabels = ["Livre", "Pré-reserva", "Reservada", "Confirmada", "Cancelada"];
 const weekdayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export function createCalendarPage() {
   const today = new Date();
-  const reservations = getStoredReservations();
+  const reservations = filterValidReservations(getStoredReservations(), getStoredClients());
   let currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   let selectedDateKey = toDateKey(today);
 

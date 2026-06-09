@@ -8,6 +8,8 @@ import {
   markFixedExpenseAsPaid,
   saveFixedExpense,
 } from "../../services/fixedExpensesService.js";
+import { getClients, getReservations } from "../../services/dataService.js";
+import { filterFinanceForPrimaryViews } from "../../services/recordIntegrityService.js";
 
 const fixedCategories = ["Energia", "Água", "Internet", "Funcionário", "Manutenção mensal", "Outros"];
 const recurringFixedCategories = ["energia", "água", "internet", "funcionário", "manutenção", "assinatura", "imposto", "limpeza", "outros"];
@@ -145,7 +147,8 @@ export function createFinancePage() {
   return page;
 
   function render() {
-    const visibleFinance = filterFinanceByMonth(finance, selectedMonth);
+    const validFinance = filterFinanceForPrimaryViews(finance, getClients(), getReservations());
+    const visibleFinance = filterFinanceByMonth(validFinance, selectedMonth);
     const monthFixedAccounts = fixedAccounts.filter((item) => isEntryInMonth({ dueDate: item.dueDate }, selectedMonth));
     const visibleFixedAccounts = filterFixedAccounts(monthFixedAccounts, fixedAccountFilters);
 

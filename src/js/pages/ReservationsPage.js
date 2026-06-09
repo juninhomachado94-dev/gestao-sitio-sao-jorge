@@ -3,6 +3,7 @@ import { removeReservationRevenues, syncReservationRevenues } from "./financeSto
 import { getClients, getReservations, saveReservations } from "../../services/dataService.js";
 import { formatCurrency } from "../../services/privacyService.js";
 import { getCurrentAuthUser } from "../../services/authService.js";
+import { filterValidReservations, getDisplayClientName } from "../../services/recordIntegrityService.js";
 import {
   buildReservationCheckoutSummary,
   checkoutItems,
@@ -76,7 +77,7 @@ export function createReservationsPage() {
 
   function renderReservations() {
     tableHost.replaceChildren(createReservationsTable({
-      reservations,
+      reservations: filterValidReservations(reservations, clients),
       clients,
       checklists,
       occurrences,
@@ -337,7 +338,7 @@ function createReservationsTable({ reservations, clients, checklists, occurrence
     const values = [
       formatDateTime(reservation.dataEntrada, reservation.horaEntrada),
       formatDateTime(reservation.dataSaida, reservation.horaSaida),
-      getClientName(clients, reservation.clientId),
+      getDisplayClientName(reservation, clients, "Reserva sem cliente vinculado"),
       reservation.eventType || "Não informado",
       formatCurrency(reservation.totalValue),
       formatCurrency(reservation.depositValue),

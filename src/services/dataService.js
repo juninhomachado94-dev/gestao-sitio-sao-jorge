@@ -118,6 +118,30 @@ export function saveContracts(data) {
   writeValue(CONTRACTS_STORAGE_KEY, sanitizeList(data, "contratos"));
 }
 
+export function deleteContract(contractId) {
+  if (!contractId) {
+    return;
+  }
+
+  const contracts = sanitizeList(readList(CONTRACTS_STORAGE_KEY), "contratos")
+    .filter((contract) => contract.id !== contractId);
+
+  contractsMutationVersion += 1;
+  writeValue(CONTRACTS_STORAGE_KEY, contracts);
+
+  if (useOnlineDatabase) {
+    deleteOnlineContract(contractId);
+  }
+}
+
+export async function refreshOnlineData() {
+  if (!useOnlineDatabase) {
+    return;
+  }
+
+  await refreshOnlineDataFromSupabase();
+}
+
 export async function findContractByToken(token) {
   const normalizedToken = token?.trim();
 
@@ -144,6 +168,28 @@ export function saveContract(contract) {
     return;
   }
 
+  storeContractLocally(contract);
+
+  if (useOnlineDatabase) {
+    upsertSingleContractToSupabase(contract);
+  }
+}
+
+export async function saveContractConfirmed(contract) {
+  if (!contract?.id) {
+    return { ok: false, error: new Error("Contrato sem identificador.") };
+  }
+
+  storeContractLocally(contract);
+
+  if (!useOnlineDatabase) {
+    return { ok: true, error: null };
+  }
+
+  return upsertSingleContractToSupabase(contract);
+}
+
+function storeContractLocally(contract) {
   const contracts = sanitizeList(readList(CONTRACTS_STORAGE_KEY), "contratos");
   const exists = contracts.some((item) => item.id === contract.id);
   const nextContracts = exists
@@ -152,10 +198,6 @@ export function saveContract(contract) {
 
   contractsMutationVersion += 1;
   writeValue(CONTRACTS_STORAGE_KEY, nextContracts);
-
-  if (useOnlineDatabase) {
-    upsertSingleContractToSupabase(contract);
-  }
 }
 
 export function getSettings() {
@@ -713,7 +755,8 @@ async function syncContractsFromSupabase(localContracts = [], mutationVersion = 
       return;
     }
 
-    const contracts = sanitizeList(data.map(mapContractFromSupabase), "contratos");
+    const remoteContracts = sanitizeList(data.map(mapContractFromSupabase), "contratos");
+    const contracts = mergeContractsPreservingHistory(remoteContracts, localContracts);
     hasLoadedContractsFromSupabase = true;
 
     if (mutationVersion !== contractsMutationVersion) {
@@ -724,11 +767,34 @@ async function syncContractsFromSupabase(localContracts = [], mutationVersion = 
       writeValue(CONTRACTS_STORAGE_KEY, contracts);
     }
 
-    console.log("Contratos carregados do Supabase:", contracts.length);
+    console.log("Contratos carregados do Supabase:", remoteContracts.length);
+    console.log("Contratos históricos preservados localmente:", contracts.length - remoteContracts.length);
   } catch (error) {
     console.error("Erro ao conectar com Supabase para buscar contratos:", error);
     // Mantém o fallback em localStorage se o Supabase estiver indisponível.
   }
+}
+
+function mergeContractsPreservingHistory(remoteContracts, localContracts) {
+  const merged = new Map();
+
+  sanitizeList(localContracts, "contratos").forEach((contract) => {
+    const key = contract.id || contract.token;
+
+    if (key) {
+      merged.set(key, contract);
+    }
+  });
+
+  sanitizeList(remoteContracts, "contratos").forEach((contract) => {
+    const key = contract.id || contract.token;
+
+    if (key) {
+      merged.set(key, contract);
+    }
+  });
+
+  return Array.from(merged.values());
 }
 
 async function syncContractsToSupabase(contracts) {
@@ -737,34 +803,6 @@ async function syncContractsToSupabase(contracts) {
     const normalizedContracts = Array.isArray(contracts)
       ? contracts.map(mapContractToSupabase)
       : [];
-
-    const { data: existingContracts, error: listError } = await supabase
-      .from("generated_contracts")
-      .select("id");
-
-    if (listError) {
-      console.error("Erro ao listar contratos no Supabase para limpeza:", listError);
-      return;
-    }
-
-    const currentIds = new Set(normalizedContracts.map((contract) => contract.id));
-    const idsToDelete = (existingContracts || [])
-      .map((contract) => contract.id)
-      .filter((id) => id && !currentIds.has(id));
-
-    if (idsToDelete.length) {
-      const { error: deleteError } = await supabase
-        .from("generated_contracts")
-        .delete()
-        .in("id", idsToDelete);
-
-      if (deleteError) {
-        console.error("Erro ao excluir contratos no Supabase:", deleteError);
-        return;
-      }
-    }
-
-    console.log("item removido do Supabase:", idsToDelete);
 
     if (normalizedContracts.length) {
       const { error } = await supabase
@@ -782,6 +820,25 @@ async function syncContractsToSupabase(contracts) {
   } catch (error) {
     console.error("Erro ao conectar com Supabase para salvar contratos:", error);
     // Mantém os dados locais se o Supabase estiver indisponível.
+  }
+}
+
+async function deleteOnlineContract(contractId) {
+  try {
+    const supabase = await getSupabaseClient();
+    const { error } = await supabase
+      .from("generated_contracts")
+      .delete()
+      .eq("id", contractId);
+
+    if (error) {
+      console.error("Erro ao excluir contrato no Supabase:", error);
+      return;
+    }
+
+    console.log("Contrato removido do Supabase:", contractId);
+  } catch (error) {
+    console.error("Erro ao conectar com Supabase para excluir contrato:", error);
   }
 }
 
@@ -822,13 +879,15 @@ async function upsertSingleContractToSupabase(contract) {
 
     if (error) {
       console.error("Erro ao salvar contrato no Supabase:", error);
-      return;
+      return { ok: false, error };
     }
 
     console.log("Itens salvos no Supabase:", 1);
     console.log("sincronizacao concluida");
+    return { ok: true, error: null };
   } catch (error) {
     console.error("Erro ao conectar com Supabase para salvar contrato:", error);
+    return { ok: false, error };
   }
 }
 

@@ -1,7 +1,11 @@
 import { getFinanceData } from "./pages/financeStore.js";
-import { getReservations } from "../services/dataService.js";
+import { getClients, getReservations } from "../services/dataService.js";
 import { getFixedExpenses } from "../services/fixedExpensesService.js";
 import { formatCurrency } from "../services/privacyService.js";
+import {
+  filterFinanceForPrimaryViews,
+  filterValidReservations,
+} from "../services/recordIntegrityService.js";
 
 const state = {
   mode: "month",
@@ -360,9 +364,11 @@ function createAnnualTable(rows) {
 }
 
 function getScopedData() {
-  const finance = normalizeFinance(getFinanceData());
+  const clients = safeArray(getClients());
+  const allReservations = safeArray(getReservations());
+  const finance = filterFinanceForPrimaryViews(normalizeFinance(getFinanceData()), clients, allReservations);
   const fixedAccounts = safeArray(getFixedExpenses());
-  const reservations = safeArray(getReservations());
+  const reservations = filterValidReservations(allReservations, clients);
 
   const scopedFinance = {
     revenues: finance.revenues.filter((item) => isInScope(getFinanceEntryDate(item))),
@@ -381,9 +387,11 @@ function getScopedData() {
 }
 
 function getHistoricalData() {
-  const finance = normalizeFinance(getFinanceData());
+  const clients = safeArray(getClients());
+  const allReservations = safeArray(getReservations());
+  const finance = filterFinanceForPrimaryViews(normalizeFinance(getFinanceData()), clients, allReservations);
   const fixedAccounts = safeArray(getFixedExpenses());
-  const reservations = safeArray(getReservations());
+  const reservations = filterValidReservations(allReservations, clients);
   const months = new Map();
   const years = new Map();
 

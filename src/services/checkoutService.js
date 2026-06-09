@@ -4,6 +4,10 @@ const CHECKLIST_STORAGE_KEY = "sitio-sao-jorge-checkout-checklists";
 const OCCURRENCES_STORAGE_KEY = "sitio-sao-jorge-checkout-occurrences";
 const CHECKOUT_PHOTOS_BUCKET = "checkout-photos";
 const MAX_CHECKOUT_PHOTO_SIZE = 8 * 1024 * 1024;
+const tableAvailability = {
+  checklists: true,
+  occurrences: true,
+};
 
 export const checkoutItems = [
   { key: "trashCollected", label: "Lixo recolhido" },
@@ -196,6 +200,10 @@ export function buildCheckoutStrategicIndicators({ occurrences, selectedMonth })
 }
 
 async function syncChecklistsFromSupabase() {
+  if (!tableAvailability.checklists) {
+    return;
+  }
+
   try {
     const { data, error } = await supabase
       .from("checkout_checklists")
@@ -203,6 +211,11 @@ async function syncChecklistsFromSupabase() {
       .order("created_at", { ascending: true });
 
     if (error) {
+      if (isMissingTableError(error)) {
+        tableAvailability.checklists = false;
+        console.info("Tabela opcional checkout_checklists não configurada; usando dados locais.");
+        return;
+      }
       console.error("Erro ao carregar checklists de saída no Supabase:", error);
       return;
     }
@@ -214,6 +227,10 @@ async function syncChecklistsFromSupabase() {
 }
 
 async function syncOccurrencesFromSupabase() {
+  if (!tableAvailability.occurrences) {
+    return;
+  }
+
   try {
     const { data, error } = await supabase
       .from("checkout_occurrences")
@@ -221,6 +238,11 @@ async function syncOccurrencesFromSupabase() {
       .order("created_at", { ascending: true });
 
     if (error) {
+      if (isMissingTableError(error)) {
+        tableAvailability.occurrences = false;
+        console.info("Tabela opcional checkout_occurrences não configurada; usando dados locais.");
+        return;
+      }
       console.error("Erro ao carregar ocorrências de checkout no Supabase:", error);
       return;
     }
@@ -372,6 +394,11 @@ function sanitizePathSegment(value) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase() || "arquivo";
+}
+
+function isMissingTableError(error) {
+  return error?.code === "PGRST205"
+    || String(error?.message || "").includes("Could not find the table");
 }
 
 function toDateInputValue(date) {

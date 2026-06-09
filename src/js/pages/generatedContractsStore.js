@@ -2,18 +2,13 @@ import {
   findContractByToken,
   getContracts,
   saveContract,
+  saveContractConfirmed,
   saveContracts,
 } from "../../services/dataService.js";
 
 export function getGeneratedContracts() {
   const contracts = getContracts();
-  const normalizedContracts = ensureContractIdentities(contracts);
-
-  if (normalizedContracts.changed) {
-    saveGeneratedContracts(normalizedContracts.contracts);
-  }
-
-  return normalizedContracts.contracts;
+  return ensureContractIdentities(contracts).contracts;
 }
 
 export function saveGeneratedContracts(contracts) {
@@ -58,10 +53,36 @@ export function updateGeneratedContractByToken(token, updater) {
   return updatedContracts.find((contract) => contract.token === token);
 }
 
+export async function updateGeneratedContractByTokenConfirmed(token, updater) {
+  const contract = await findGeneratedContractByTokenAsync(token);
+
+  if (!contract) {
+    return { ok: false, error: new Error("Contrato não encontrado."), contract: null };
+  }
+
+  const updatedContract = normalizeContractIdentity(updater(contract));
+  const result = await saveContractConfirmed(updatedContract);
+
+  return {
+    ...result,
+    contract: updatedContract,
+  };
+}
+
 export function saveGeneratedContract(contract) {
   const normalizedContract = normalizeContractIdentity(contract);
   saveContract(normalizedContract);
   return normalizedContract;
+}
+
+export async function saveGeneratedContractConfirmed(contract) {
+  const normalizedContract = normalizeContractIdentity(contract);
+  const result = await saveContractConfirmed(normalizedContract);
+
+  return {
+    ...result,
+    contract: normalizedContract,
+  };
 }
 
 export function createContractToken(existingContracts = []) {

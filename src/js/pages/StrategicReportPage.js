@@ -1,7 +1,12 @@
 import { createDataTable } from "../components/DataTable.js";
 import { createSummaryCard } from "../components/SummaryCard.js";
-import { getContracts, getFinance, getReservations } from "../../services/dataService.js";
+import { getClients, getContracts, getFinance, getReservations } from "../../services/dataService.js";
 import { formatCurrency } from "../../services/privacyService.js";
+import {
+  filterFinanceForPrimaryViews,
+  filterValidContracts,
+  filterValidReservations,
+} from "../../services/recordIntegrityService.js";
 import {
   buildCheckoutStrategicIndicators,
   getCheckoutOccurrences,
@@ -455,8 +460,10 @@ function createDayOccupancyChart(report) {
 }
 
 function buildStrategicReport(selectedMonth, settings) {
-  const reservations = normalizeReservations(getReservations());
-  const finance = normalizeFinance(getFinance());
+  const clients = getClients();
+  const allReservations = getReservations();
+  const reservations = normalizeReservations(filterValidReservations(allReservations, clients));
+  const finance = normalizeFinance(filterFinanceForPrimaryViews(getFinance(), clients, allReservations));
   const fixedAccountsSummary = calculateFixedExpensesSummary(getFixedExpenses(), selectedMonth);
   const commercialSummary = getMonthCommercialSummary({
     dates: getCommercialDates(),
@@ -468,7 +475,7 @@ function buildStrategicReport(selectedMonth, settings) {
     occurrences: getCheckoutOccurrences(),
     selectedMonth,
   });
-  const contracts = Array.isArray(getContracts()) ? getContracts() : [];
+  const contracts = filterValidContracts(getContracts(), clients, allReservations);
   const monthReservations = reservations.filter((reservation) => (
     reservation.reservationStatus !== "Cancelada"
     && isDateInMonth(reservation.dataEntrada, selectedMonth)

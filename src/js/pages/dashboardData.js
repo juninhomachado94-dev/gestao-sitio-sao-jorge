@@ -6,22 +6,29 @@ import {
   getFixedExpenses,
 } from "../../services/fixedExpensesService.js";
 import { buildCommercialAlerts, getCommercialDates } from "../../services/commercialDatesService.js";
+import {
+  filterFinanceForPrimaryViews,
+  filterValidContracts,
+  filterValidReservations,
+  getDisplayClientName,
+} from "../../services/recordIntegrityService.js";
 
 export function getDashboardData(referenceDate = new Date()) {
   const selectedMonth = startOfMonth(referenceDate);
   const clients = getStoredClients();
   const reservations = getStoredReservations();
-  const finance = getStoredFinance();
+  const validReservations = filterValidReservations(reservations, clients);
+  const finance = filterFinanceForPrimaryViews(getStoredFinance(), clients, reservations);
   const commercialDates = getCommercialDates();
-  const contracts = getStoredGeneratedContracts();
-  const monthReservations = reservations.filter((reservation) => (
+  const contracts = filterValidContracts(getStoredGeneratedContracts(), clients, reservations);
+  const monthReservations = validReservations.filter((reservation) => (
     isDateInSelectedMonth(reservation.dataEntrada, selectedMonth)
     && reservation.reservationStatus !== "Cancelada"
   ));
   const financialSummary = calculateFinancialSummary(finance, selectedMonth);
   const pendingContracts = contracts.filter((contract) => isPendingContractForSelectedMonth({
     contract,
-    reservations,
+    reservations: validReservations,
     selectedMonth,
   }));
 
@@ -30,7 +37,7 @@ export function getDashboardData(referenceDate = new Date()) {
     alerts: buildSystemAlerts({
       clients,
       finance,
-      reservations,
+      reservations: validReservations,
       contracts: pendingContracts,
       selectedMonth,
       commercialDates,
@@ -70,7 +77,7 @@ export function getDashboardData(referenceDate = new Date()) {
       },
     ],
     upcomingReservations: buildMonthReservationsRows(monthReservations, clients),
-    pendingPayments: buildPendingPaymentsRows(finance.revenues, selectedMonth),
+    pendingPayments: buildPendingPaymentsRows(finance.revenues, selectedMonth, clients),
   };
 }
 
@@ -85,7 +92,7 @@ function buildSystemAlerts({ clients, finance, reservations, contracts, selected
       ))
       .map((revenue) => ({
         type: "finance",
-        message: `Cliente ${getRevenueClientName(revenue)} possui ${formatCurrency(getFinanceEntryValue(revenue))} pendente`,
+        message: `Cliente ${getDisplayClientName(revenue, clients)} possui ${formatCurrency(getFinanceEntryValue(revenue))} pendente`,
       })),
     ...buildFixedExpenseAlerts(new Date()),
     ...buildCommercialAlerts(new Date(), commercialDates, selectedMonth),
@@ -103,7 +110,7 @@ function buildSystemAlerts({ clients, finance, reservations, contracts, selected
     ...contracts
       .map((contract) => ({
         type: "contract",
-        message: `Contrato pendente de assinatura: ${contract.client || contract.clientName || "Cliente não informado"}`,
+        message: `Contrato pendente de assinatura: ${getDisplayClientName(contract, clients)}`,
       })),
   ];
 
@@ -150,7 +157,7 @@ function buildMonthReservationsRows(reservations, clients) {
     ]);
 }
 
-function buildPendingPaymentsRows(revenues, selectedMonth) {
+function buildPendingPaymentsRows(revenues, selectedMonth, clients) {
   return revenues
     .filter((revenue) => (
       revenue.status === "pendente"
@@ -160,7 +167,7 @@ function buildPendingPaymentsRows(revenues, selectedMonth) {
     .sort((first, second) => buildDate(getFinanceEntryDate(first)) - buildDate(getFinanceEntryDate(second)))
     .slice(0, 5)
     .map((revenue) => [
-      revenue.clientName || revenue.reference || revenue.description || "Cliente não informado",
+      getDisplayClientName(revenue, clients),
       formatDate(getFinanceEntryDate(revenue)),
       formatCurrency(getFinanceEntryValue(revenue)),
       "Pendente",
@@ -213,19 +220,19 @@ function isPendingContractForSelectedMonth({ contract, reservations, selectedMon
 }
 
 function getFinanceEntryDate(entry) {
-  return entry.date || entry.paymentDate || entry.dueDate || entry.dataEntrada || "";
+  return entry.paymentDate
+    || entry.payment_date
+    || entry.dueDate
+    || entry.due_date
+    || entry.date
+    || entry.dataEntrada
+    || entry.createdAt
+    || entry.created_at
+    || "";
 }
 
 function getFinanceEntryValue(entry) {
   return Number(entry.value ?? entry.amount ?? 0);
-}
-
-function getRevenueClientName(revenue) {
-  return revenue.clientName
-    || revenue.client
-    || revenue.reference
-    || revenue.description
-    || "Cliente não informado";
 }
 
 function isDateInSelectedMonth(dateValue, selectedMonth) {
@@ -252,15 +259,7 @@ function startOfDay(date) {
 }
 
 function getReservationClientName(reservation, clients = []) {
-  const client = clients.find((item) => item.id === reservation.clientId);
-
-  return reservation.clientName
-    || reservation.client
-    || reservation.nomeCliente
-    || reservation.customerName
-    || client?.name
-    || reservation.clientId
-    || "Cliente não informado";
+  return getDisplayClientName(reservation, clients, "Reserva sem cliente vinculado");
 }
 
 function formatDate(value) {

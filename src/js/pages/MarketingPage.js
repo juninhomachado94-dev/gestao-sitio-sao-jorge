@@ -1,6 +1,10 @@
 import { createSummaryCard } from "../components/SummaryCard.js";
-import { getFinance, getReservations } from "../../services/dataService.js";
+import { getClients, getFinance, getReservations } from "../../services/dataService.js";
 import { formatCurrency } from "../../services/privacyService.js";
+import {
+  filterFinanceForPrimaryViews,
+  filterValidReservations,
+} from "../../services/recordIntegrityService.js";
 import { getCommercialDates, loadCommercialDates } from "../../services/commercialDatesService.js";
 import {
   buildMarketingAnalysis,
@@ -43,11 +47,13 @@ export function createMarketingPage() {
   return page;
 
   function render() {
+    const clients = getClients();
+    const reservations = getReservations();
     const report = buildMarketingAnalysis({
-      reservations: getReservations(),
+      reservations: filterValidReservations(reservations, clients),
       commercialDates,
       campaigns,
-      finance: getFinance(),
+      finance: filterFinanceForPrimaryViews(getFinance(), clients, reservations),
       selectedMonth,
     });
 

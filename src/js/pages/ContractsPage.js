@@ -11,7 +11,14 @@ import {
   subscribeToContractTemplates,
 } from "./contractTemplatesStore.js";
 import { createContractToken, getGeneratedContracts, saveGeneratedContracts } from "./generatedContractsStore.js";
+import { saveGeneratedContractConfirmed } from "./generatedContractsStore.js";
 import {
+  filterValidReservations,
+  getDisplayClientName,
+  getHistoricalContracts,
+} from "../../services/recordIntegrityService.js";
+import {
+  deleteContract as deleteStoredContract,
   getClients,
   getOwnerSignature as getOwnerSignatureFromService,
   getReservations,
@@ -49,7 +56,7 @@ export function createContractsPage() {
   let templates = getStoredContractTemplates();
   let generatedContracts = getGeneratedContracts();
   const clients = getStoredClients();
-  const reservations = getStoredReservations();
+  const reservations = filterValidReservations(getStoredReservations(), clients);
   let ownerSignature = getStoredOwnerSignature();
   let editingTemplateId = null;
 
@@ -120,7 +127,11 @@ export function createContractsPage() {
   function createActiveTab(tabId) {
     if (tabId === "generated") {
       return createGeneratedContractsTab({
-        contracts: generatedContracts,
+        contracts: sortGeneratedContracts(getHistoricalContracts(generatedContracts, clients, getStoredReservations()))
+          .map((contract) => ({
+            ...contract,
+            clientName: getDisplayClientName(contract, clients),
+          })),
         onCreate: openGenerator,
         onView: openGeneratedViewer,
         onEdit: openGeneratedEditor,
@@ -300,7 +311,7 @@ export function createContractsPage() {
     render();
   }
 
-  function generateContract({ reservationId }) {
+  async function generateContract({ reservationId }) {
     if (!reservationId) {
       generatorModal.showError("Selecione uma reserva para gerar o contrato.");
       return;
@@ -353,9 +364,10 @@ export function createContractsPage() {
       client,
       hasOwnerSignature: Boolean(currentOwnerSignature),
     }));
+    const token = createContractToken(generatedContracts);
     const contract = {
-      id: `contrato-${Date.now()}`,
-      token: createContractToken(generatedContracts),
+      id: token,
+      token,
       clientId: reservation.clientId,
       clientName: client.name,
       reservationId: reservation.id,
@@ -371,7 +383,14 @@ export function createContractsPage() {
       clientPhone: client.phone,
     };
 
-    setGeneratedContracts([contract, ...generatedContracts]);
+    const saveResult = await saveGeneratedContractConfirmed(contract);
+
+    if (!saveResult.ok) {
+      generatorModal.showError("Não foi possível salvar o contrato no banco online. Tente novamente antes de enviar o link.");
+      return;
+    }
+
+    generatedContracts = [saveResult.contract, ...generatedContracts];
     closeGenerator();
     render();
   }
@@ -554,7 +573,8 @@ export function createContractsPage() {
       return;
     }
 
-    setGeneratedContracts(generatedContracts.filter((contract) => contract.id !== contractId));
+    generatedContracts = generatedContracts.filter((contract) => contract.id !== contractId);
+    deleteStoredContract(contractId);
     render();
   }
 
@@ -572,6 +592,13 @@ export function createContractsPage() {
     generatedContracts = nextContracts;
     saveGeneratedContracts(generatedContracts);
   }
+}
+
+function sortGeneratedContracts(contracts) {
+  return [...contracts].sort((first, second) => (
+    new Date(second.generatedAt || second.createdAt || 0)
+    - new Date(first.generatedAt || first.createdAt || 0)
+  ));
 }
 
 function buildSignedContract(contract, signatureImage, signedAt, evidence) {

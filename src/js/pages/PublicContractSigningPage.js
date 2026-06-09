@@ -1,7 +1,7 @@
 ﻿import {
   findGeneratedContractByToken,
   findGeneratedContractByTokenAsync,
-  updateGeneratedContractByToken,
+  updateGeneratedContractByTokenConfirmed,
 } from "./generatedContractsStore.js";
 
 export function createPublicContractSigningPage(token) {
@@ -105,7 +105,7 @@ export function createPublicContractSigningPage(token) {
       const signedAt = new Date().toISOString();
       const evidence = await captureSignatureEvidence(token, signedAt);
 
-      contract = updateGeneratedContractByToken(token, (currentContract) => {
+      const saveResult = await updateGeneratedContractByTokenConfirmed(token, (currentContract) => {
         const clientSignature = canvas.toDataURL("image/png");
         const signedContract = {
           ...currentContract,
@@ -127,6 +127,12 @@ export function createPublicContractSigningPage(token) {
         };
       });
 
+      if (!saveResult.ok) {
+        showError("Não foi possível salvar a assinatura no banco online. Verifique a conexão e tente novamente.");
+        return;
+      }
+
+      contract = saveResult.contract;
       panel.replaceChildren(
         createMessage("Contrato assinado com sucesso."),
         createMessage("Registro técnico da assinatura salvo com data, hora e identificação do dispositivo."),

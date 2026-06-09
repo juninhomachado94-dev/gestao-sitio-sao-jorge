@@ -1,6 +1,6 @@
 import { navigationItems } from "../data/navigation.js";
 import { pageRegistry } from "../pages/pageRegistry.js";
-import { subscribeToRealtimeChanges } from "../../services/dataService.js";
+import { refreshOnlineData, subscribeToRealtimeChanges } from "../../services/dataService.js";
 import { startMessageAutomationScheduler } from "../../services/messageAutomationService.js";
 import { subscribeToMoneyPrivacyChange } from "../../services/privacyService.js";
 import { createHeader } from "./Header.js";
@@ -51,6 +51,11 @@ export function createAppLayout({ onLogout } = {}) {
   );
 
   renderPage(currentPage);
+  refreshOnlineData()
+    .then(() => renderPage(activePageId))
+    .catch((error) => {
+      console.error("Não foi possível atualizar os dados online:", error);
+    });
   startMessageAutomationScheduler();
   subscribeToMoneyPrivacyChange(() => {
     renderPage(activePageId);

@@ -1,5 +1,6 @@
 import { createSummaryCard } from "../components/SummaryCard.js";
-import { getReservations } from "../../services/dataService.js";
+import { getClients, getReservations } from "../../services/dataService.js";
+import { filterValidReservations } from "../../services/recordIntegrityService.js";
 import {
   commercialDateTypes,
   deleteCommercialDate,
@@ -479,7 +480,7 @@ function createField({ key, label, type, options = [] }) {
 }
 
 function buildCommercialReport({ dates, selectedMonth }) {
-  const reservations = getReservations();
+  const reservations = filterValidReservations(getReservations(), getClients());
   const monthDates = dates
     .filter((date) => isDateInMonth(date.date, selectedMonth))
     .sort((a, b) => buildDate(a.date) - buildDate(b.date));
