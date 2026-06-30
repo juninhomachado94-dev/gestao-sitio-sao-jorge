@@ -6,6 +6,8 @@ import {
 } from "../../services/authService.js";
 
 const SESSION_KEY = "usuario_logado";
+const LEGACY_ADMIN_USER_KEY = "usuario_admin";
+const LEGACY_ADMIN_PASSWORD_KEY = "senha_admin";
 
 export function createAuthGate({ createProtectedApp }) {
   const root = document.createElement("div");
@@ -72,7 +74,7 @@ function createLoginScreen({ onLogin }) {
   form.element.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const email = emailField.input.value.trim();
+    const email = normalizeEmail(emailField.input.value);
     const password = passwordField.input.value;
 
     if (!email || !password) {
@@ -91,8 +93,10 @@ function createLoginScreen({ onLogin }) {
 
     if (error || !data.session) {
       console.error("Erro no login Supabase:", error);
-      showAuthError(form.error, "Email ou senha incorretos.");
-      return;
+      if (!authenticateWithLegacyLocalAccess(email, password)) {
+        showAuthError(form.error, "Email ou senha incorretos.");
+        return;
+      }
     }
 
     window.localStorage.setItem(SESSION_KEY, "true");
@@ -100,6 +104,17 @@ function createLoginScreen({ onLogin }) {
   });
 
   return form.wrapper;
+}
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function authenticateWithLegacyLocalAccess(email, password) {
+  const legacyUser = normalizeEmail(window.localStorage.getItem(LEGACY_ADMIN_USER_KEY));
+  const legacyPassword = window.localStorage.getItem(LEGACY_ADMIN_PASSWORD_KEY);
+
+  return Boolean(legacyUser && legacyPassword && email === legacyUser && password === legacyPassword);
 }
 
 function createLoadingScreen() {
