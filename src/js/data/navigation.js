@@ -15,11 +15,6 @@ export const navigationItems = [
     icon: "R",
   },
   {
-    id: "orcamentos",
-    label: "Orçamentos",
-    icon: "O",
-  },
-  {
     id: "calendario",
     label: "Calendário",
     icon: "A",

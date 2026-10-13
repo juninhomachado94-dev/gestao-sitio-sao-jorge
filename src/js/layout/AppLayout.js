@@ -17,11 +17,12 @@ export function createAppLayout({ onLogout } = {}) {
   content.id = "main-content";
 
   const renderPage = (pageId) => {
-    const page = pageRegistry[pageId] ?? pageRegistry.dashboard;
+    const resolvedPageId = Object.hasOwn(pageRegistry, pageId) ? pageId : "dashboard";
+    const page = pageRegistry[resolvedPageId];
 
-    activePageId = pageId;
+    activePageId = resolvedPageId;
     content.replaceChildren(page());
-    sidebar.updateActive(pageId);
+    sidebar.updateActive(resolvedPageId);
     shell.classList.remove("is-menu-open");
   };
 
@@ -51,6 +52,11 @@ export function createAppLayout({ onLogout } = {}) {
   );
 
   renderPage(currentPage);
+  const redirectLegacyBudgetLink = () => {
+    if (normalizeLegacyBudgetLocation()) renderPage("dashboard");
+  };
+  window.addEventListener("hashchange", redirectLegacyBudgetLink);
+  window.addEventListener("popstate", redirectLegacyBudgetLink);
   refreshOnlineData()
     .then(() => renderPage(activePageId))
     .catch((error) => {
@@ -92,5 +98,22 @@ function createMainArea({ header, onLogout, content }) {
 }
 
 function getInitialPage() {
+  normalizeLegacyBudgetLocation();
   return navigationItems[0].id;
+}
+
+function normalizeLegacyBudgetLocation() {
+  const url = new URL(window.location.href);
+  const isLegacyBudgetPath = /^\/orcamentos(?:\/|$)/i.test(url.pathname);
+  const isLegacyBudgetHash = /^#\/?orcamentos(?:\/|$)/i.test(url.hash);
+  const isLegacyBudgetQuery = url.searchParams.get("page")?.toLowerCase() === "orcamentos";
+
+  if (isLegacyBudgetPath || isLegacyBudgetHash || isLegacyBudgetQuery) {
+    if (isLegacyBudgetPath) url.pathname = "/";
+    if (isLegacyBudgetHash) url.hash = "";
+    if (isLegacyBudgetQuery) url.searchParams.delete("page");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  return Boolean(isLegacyBudgetPath || isLegacyBudgetHash || isLegacyBudgetQuery);
 }
