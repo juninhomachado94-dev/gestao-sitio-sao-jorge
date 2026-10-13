@@ -298,18 +298,15 @@ function createFinancialSituation(reservation, finance) {
   header.className = "calendar-financial__header";
   header.append(title, status);
   const rows = [
-    ["Total salvo na reserva", data.total],
-    ["Sinal salvo na reserva", data.deposit],
-    ["Sinal recebido (financeiro)", data.signalPaid],
-    ["Recebido confirmado (financeiro)", data.paid],
-    ["Restante salvo na reserva", data.remaining],
-    ["Pendente no financeiro", data.pending],
+    ["Total da reserva", data.total],
+    ["Sinal recebido", data.status === "Indeterminado" ? null : data.signalPaid],
+    ["Falta receber", data.status === "Indeterminado" ? null : data.remaining],
   ];
   rows.forEach(([label, value], index) => {
     const row = document.createElement("div");
     const term = document.createElement("dt");
     const description = document.createElement("dd");
-    if (index === 4) row.className = "calendar-financial__balance";
+    row.className = ["calendar-financial__total", "calendar-financial__signal", "calendar-financial__balance"][index];
     term.textContent = label;
     description.textContent = value === null ? "Não confirmado" : formatCurrency(value / 100);
     row.append(term, description);
@@ -326,13 +323,10 @@ function createFinancialSituation(reservation, finance) {
     text.textContent = `${data.progress}% do total confirmado`;
     section.append(progress, text);
   } else {
-    const warning = document.createElement("ul");
+    const warning = document.createElement("p");
     warning.className = "calendar-financial__warning";
-    data.issues.forEach((issue) => {
-      const item = document.createElement("li");
-      item.textContent = issue;
-      warning.append(item);
-    });
+    const hasDivergence = data.issues.some((issue) => /difere|superior|repetidos|não corresponde|mas o financeiro/.test(issue));
+    warning.textContent = hasDivergence ? "Valores divergentes — conferir" : "Informações insuficientes — conferir";
     section.append(warning);
   }
   return section;
