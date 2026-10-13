@@ -21,10 +21,14 @@ const emptyClient = {
 export function createClientsPage() {
   let clients = getStoredClients();
   let editingClientId = null;
+  let searchQuery = "";
+  let pageSize = 10;
+  let currentPage = 1;
 
   const page = document.createElement("section");
   const header = createHeader();
   const tableHost = document.createElement("div");
+  const listControls = createListControls();
   const modal = createClientModal({
     onSubmit: saveClient,
     onClose: closeModal,
@@ -37,19 +41,95 @@ export function createClientsPage() {
   page.setAttribute("aria-labelledby", "clients-title");
   tableHost.className = "clients-page__table-host";
 
-  page.append(header.element, tableHost, modal.element, historyModal.element);
+  page.append(header.element, listControls.toolbar, tableHost, listControls.pagination, modal.element, historyModal.element);
 
   renderClients();
 
   return page;
 
   function renderClients() {
+    const terms = searchQuery.split(/\s+/).map(normalizeClientSearch).filter(Boolean);
+    const matchingClients = clients.filter((client) => {
+      const fields = [client.name, client.phone, client.document].map(normalizeClientSearch);
+      return terms.every((term) => fields.some((field) => field.includes(term)));
+    }).sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? ""), "pt-BR", { sensitivity: "base" }));
+    const totalPages = Math.max(1, Math.ceil(matchingClients.length / pageSize));
+    currentPage = Math.min(currentPage, totalPages);
+    const start = (currentPage - 1) * pageSize;
     tableHost.replaceChildren(createClientsTable({
-      clients,
+      clients: matchingClients.slice(start, start + pageSize),
+      emptyMessage: terms.length ? "Nenhum cliente encontrado para essa busca." : "Nenhum cliente cadastrado",
       onEdit: openEditModal,
       onDelete: deleteClient,
       onHistory: openHistoryModal,
     }));
+    listControls.count.textContent = `Clientes cadastrados: ${clients.length} · Encontrados: ${matchingClients.length}`;
+    listControls.range.textContent = matchingClients.length
+      ? `Exibindo ${start + 1}–${Math.min(start + pageSize, matchingClients.length)} de ${matchingClients.length}`
+      : "Exibindo 0 de 0";
+    listControls.position.textContent = `Página ${currentPage} de ${totalPages}`;
+    listControls.previous.disabled = currentPage === 1;
+    listControls.next.disabled = currentPage === totalPages;
+  }
+
+  function createListControls() {
+    const toolbar = document.createElement("div");
+    const searchLabel = document.createElement("label");
+    const searchTitle = document.createElement("span");
+    const search = document.createElement("input");
+    const count = document.createElement("p");
+    const sizeLabel = document.createElement("label");
+    const sizeTitle = document.createElement("span");
+    const size = document.createElement("select");
+    const pagination = document.createElement("nav");
+    const range = document.createElement("p");
+    const navigation = document.createElement("div");
+    const previous = document.createElement("button");
+    const position = document.createElement("span");
+    const next = document.createElement("button");
+
+    toolbar.className = "clients-page__toolbar";
+    searchLabel.className = "clients-page__search";
+    searchTitle.textContent = "Buscar cliente";
+    search.type = "search";
+    search.placeholder = "Nome, telefone ou CPF/CNPJ";
+    search.autocomplete = "off";
+    search.addEventListener("input", () => {
+      searchQuery = search.value;
+      currentPage = 1;
+      renderClients();
+    });
+    searchLabel.append(searchTitle, search);
+    count.className = "clients-page__count";
+    count.setAttribute("role", "status");
+    sizeLabel.className = "clients-page__page-size";
+    sizeTitle.textContent = "Clientes por página";
+    [10, 25, 50].forEach((value) => {
+      const option = document.createElement("option");
+      option.value = String(value);
+      option.textContent = String(value);
+      size.append(option);
+    });
+    size.value = String(pageSize);
+    size.addEventListener("change", () => {
+      pageSize = Number(size.value);
+      currentPage = 1;
+      renderClients();
+    });
+    sizeLabel.append(sizeTitle, size);
+    toolbar.append(searchLabel, sizeLabel, count);
+    pagination.className = "clients-page__pagination";
+    pagination.setAttribute("aria-label", "Páginas de clientes");
+    navigation.className = "clients-page__page-navigation";
+    previous.type = next.type = "button";
+    previous.className = next.className = "button button--secondary";
+    previous.textContent = "Anterior";
+    next.textContent = "Próximo";
+    previous.addEventListener("click", () => { currentPage -= 1; renderClients(); });
+    next.addEventListener("click", () => { currentPage += 1; renderClients(); });
+    navigation.append(previous, position, next);
+    pagination.append(range, navigation);
+    return { toolbar, pagination, count, range, position, previous, next };
   }
 
   function openCreateModal() {
@@ -175,7 +255,11 @@ function saveStoredClients(clients) {
   saveClients(clients);
 }
 
-function createClientsTable({ clients, onEdit, onDelete, onHistory }) {
+function normalizeClientSearch(value) {
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function createClientsTable({ clients, emptyMessage, onEdit, onDelete, onHistory }) {
   const section = document.createElement("section");
   const wrapper = document.createElement("div");
   const table = document.createElement("table");
@@ -201,7 +285,8 @@ function createClientsTable({ clients, onEdit, onDelete, onHistory }) {
     const cell = document.createElement("td");
 
     cell.colSpan = headers.length;
-    cell.textContent = "Nenhum cliente cadastrado";
+    cell.className = "clients-table__empty";
+    cell.textContent = emptyMessage;
     row.append(cell);
     tbody.append(row);
   }
@@ -216,8 +301,9 @@ function createClientsTable({ clients, onEdit, onDelete, onHistory }) {
       client.notes,
     ];
 
-    values.forEach((value) => {
+    values.forEach((value, index) => {
       const td = document.createElement("td");
+      td.dataset.label = headers[index];
       td.textContent = value;
       row.append(td);
     });
@@ -227,6 +313,7 @@ function createClientsTable({ clients, onEdit, onDelete, onHistory }) {
     const historyButton = document.createElement("button");
     const editButton = document.createElement("button");
     const deleteButton = document.createElement("button");
+    actions.className = "clients-table__action-cell";
 
     actionsGroup.className = "clients-table__actions";
 
@@ -243,6 +330,7 @@ function createClientsTable({ clients, onEdit, onDelete, onHistory }) {
     deleteButton.className = "button button--danger";
     deleteButton.type = "button";
     deleteButton.textContent = "Excluir";
+    deleteButton.title = "Excluir cliente";
     deleteButton.addEventListener("click", () => onDelete(client.id));
 
     actionsGroup.append(historyButton, editButton, deleteButton);

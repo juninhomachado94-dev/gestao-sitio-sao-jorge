@@ -609,6 +609,102 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+.clients-page__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 20px;
+  margin-bottom: 18px;
+}
+
+.clients-page__search,
+.clients-page__page-size {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  color: var(--color-forest-900);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.clients-page__search input,
+.clients-page__page-size select {
+  box-sizing: border-box;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.clients-page__search input:focus-visible,
+.clients-page__page-size select:focus-visible {
+  outline: 2px solid var(--color-forest-700);
+  outline-offset: 2px;
+}
+
+.clients-page__count {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+.clients-page__pagination,
+.clients-page__page-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.clients-page__pagination {
+  margin-top: 18px;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+.clients-page__pagination p {
+  margin: 0;
+}
+
+.clients-page__pagination button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.clients-page .clients-table__actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.clients-page .clients-table__actions .button {
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.clients-page .clients-table__actions .button--danger {
+  margin-left: 8px;
+  border-color: #e6cccc;
+  background: transparent;
+  color: #991b1b;
+  box-shadow: none;
+}
+
+.clients-page .clients-table td {
+  overflow-wrap: anywhere;
+}
+
+.clients-page .clients-table__empty {
+  padding: 28px 18px;
+  text-align: center;
+}
+
 .clients-table__wrapper {
   width: 100%;
   overflow-x: auto;
@@ -7081,5 +7177,113 @@ textarea:focus-visible {
 
   .strategic-page__title {
     font-size: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .clients-page .clients-table {
+    padding: 0;
+  }
+
+  .clients-page__toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .clients-page__page-size {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .clients-page .clients-table__wrapper {
+    margin-top: 0;
+    overflow: visible;
+    border: 0;
+  }
+
+  .clients-page .clients-table__wrapper::after {
+    display: none;
+  }
+
+  .clients-page .clients-table table {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .clients-page .clients-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .clients-page .clients-table tbody,
+  .clients-page .clients-table tbody tr {
+    display: block;
+  }
+
+  .clients-page .clients-table tbody tr {
+    padding: 12px;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .clients-page .clients-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .clients-page .clients-table td {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding: 8px 0;
+    border: 0;
+    white-space: normal;
+    font-size: 0.9rem;
+  }
+
+  .clients-page .clients-table td[data-label]::before {
+    content: attr(data-label);
+    color: var(--color-muted);
+    font-weight: 600;
+  }
+
+  .clients-page .clients-table td:first-child:not(.clients-table__empty) {
+    font-weight: 700;
+    color: var(--color-forest-900);
+  }
+
+  .clients-page .clients-table td.clients-table__action-cell,
+  .clients-page .clients-table td.clients-table__empty {
+    display: block;
+  }
+
+  .clients-page .clients-table__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .clients-page .clients-table__actions .button--danger {
+    grid-column: 2;
+    margin: 4px 0 0;
+  }
+
+  .clients-page__page-navigation {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
+  }
+
+  .clients-page__page-navigation span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    text-align: center;
+  }
+
+  .clients-page__page-navigation .button {
+    min-height: 44px;
+    padding: 10px 12px;
   }
 }
