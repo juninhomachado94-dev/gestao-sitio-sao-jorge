@@ -910,6 +910,158 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+.reservations-list__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  padding: 16px 0;
+  margin-bottom: 18px;
+  border-block: 1px solid var(--color-line);
+}
+
+.reservations-list__summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+.reservations-list__summary strong {
+  color: var(--color-forest-900);
+  font-size: 1.5rem;
+}
+
+.reservations-list__toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px;
+}
+
+.reservations-list__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  color: var(--color-forest-900);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.reservations-list__field--search {
+  grid-column: span 2;
+}
+
+.reservations-list__field input,
+.reservations-list__field select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.reservations-list__field input:focus-visible,
+.reservations-list__field select:focus-visible {
+  outline: 2px solid var(--color-forest-700);
+  outline-offset: 2px;
+}
+
+.reservations-list__count {
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  margin: 16px 0;
+}
+
+.reservations-list__pagination,
+.reservations-list__navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reservations-list__pagination {
+  margin-top: 18px;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+.reservations-list__pagination p {
+  margin: 0;
+}
+
+.reservations-list__pagination button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.reservations-page .reservations-table {
+  padding: 0;
+}
+
+.reservations-page .reservations-table__wrapper {
+  margin-top: 0;
+  border-radius: 8px;
+}
+
+.reservations-page .reservations-table td,
+.reservations-page .reservations-table th {
+  padding: 10px;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.reservations-page .reservations-table table {
+  min-width: 1150px;
+}
+
+.reservations-page .reservations-table td {
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+
+.reservations-page .reservations-table__actions {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.reservations-page .reservations-table__actions .button {
+  min-height: 44px;
+  padding: 10px;
+}
+
+.reservations-page .reservations-table__actions .button--danger {
+  background: transparent;
+  border-color: #e6cccc;
+  color: #991b1b;
+  box-shadow: none;
+}
+
+.reservations-page .reservation-status-badge {
+  white-space: normal;
+  max-width: 100%;
+}
+
+.reservations-page .reservation-status-badge .status-text {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.reservations-page .reservations-table td:nth-child(5),
+.reservations-page .reservations-table td:nth-child(6),
+.reservations-page .reservations-table td:nth-child(7) {
+  white-space: nowrap;
+}
+
 .reservations-table__wrapper {
   width: 100%;
   overflow-x: auto;
@@ -7181,6 +7333,113 @@ textarea:focus-visible {
 }
 
 @media (max-width: 768px) {
+  .reservations-list__toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reservations-list__field--search,
+  .reservations-list__field--view,
+  .reservations-list__field--sort {
+    grid-column: 1 / -1;
+  }
+
+  .reservations-list__summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .reservations-list__summary div {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .reservations-page .reservations-table__wrapper {
+    border: 0;
+    overflow: visible;
+  }
+
+  .reservations-page .reservations-table__wrapper::after {
+    display: none;
+  }
+
+  .reservations-page .reservations-table table,
+  .reservations-page .reservations-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .reservations-page .reservations-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .reservations-page .reservations-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    background: var(--color-white);
+  }
+
+  .reservations-page .reservations-table td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+    padding: 4px 0;
+    border: 0;
+  }
+
+  .reservations-page .reservations-table td::before {
+    content: attr(data-label);
+    color: var(--color-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .reservations-page .reservations-table td:nth-child(3),
+  .reservations-page .reservations-table td:nth-child(10),
+  .reservations-page .reservations-table td.reservations-table__action-cell,
+  .reservations-page .reservations-table td.reservations-table__empty {
+    grid-column: 1 / -1;
+  }
+
+  .reservations-page .reservations-table td:nth-child(3) {
+    font-weight: 700;
+    color: var(--color-forest-900);
+  }
+
+  .reservations-page .reservations-table__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .reservations-page .reservations-table__actions .button--danger {
+    grid-column: 2;
+  }
+
+  .reservations-list__navigation {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .reservations-list__navigation span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    text-align: center;
+  }
+
   .clients-page .clients-table {
     padding: 0;
   }

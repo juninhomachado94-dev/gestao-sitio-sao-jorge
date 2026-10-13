@@ -1,4 +1,4 @@
-﻿import { createStatusBadge } from "../components/StatusBadge.js";
+import { createStatusBadge } from "../components/StatusBadge.js";
 import { removeReservationRevenues, syncReservationRevenues } from "./financeStore.js";
 import { getClients, getReservations, saveReservations } from "../../services/dataService.js";
 import { formatCurrency } from "../../services/privacyService.js";
@@ -50,10 +50,18 @@ export function createReservationsPage() {
   let checklists = getCheckoutChecklists();
   let occurrences = getCheckoutOccurrences();
   let editingReservationId = null;
+  let currentPage = 1;
 
   const page = document.createElement("section");
   const header = createHeader();
   const tableHost = document.createElement("div");
+  const listControls = createReservationListControls(() => {
+    currentPage = 1;
+    renderReservations();
+  }, (direction) => {
+    currentPage += direction;
+    renderReservations();
+  });
   const modal = createReservationModal({
     clients,
     onSubmit: saveReservation,
@@ -69,15 +77,40 @@ export function createReservationsPage() {
   page.setAttribute("aria-labelledby", "reservations-title");
   tableHost.className = "reservations-page__table-host";
 
-  page.append(header.element, tableHost, modal.element, checkoutModal.element);
+  page.append(header.element, listControls.element, tableHost, listControls.pagination, modal.element, checkoutModal.element);
 
   renderReservations();
 
   return page;
 
   function renderReservations() {
+    const today = getReservationToday();
+    const validReservations = filterValidReservations(reservations, clients);
+    const filters = listControls.values();
+    const terms = filters.search.split(/\s+/).map(normalizeReservationSearch).filter(Boolean);
+    const clientsById = new Map(clients.map((client) => [client.id, client]));
+    const results = validReservations.filter((reservation) => {
+      const endDate = reservation.dataSaida || reservation.dataEntrada;
+      const fields = [
+        getDisplayClientName(reservation, clients, ""),
+        clientsById.get(reservation.clientId)?.phone,
+        reservation.dataEntrada, reservation.dataSaida,
+        formatDate(reservation.dataEntrada), formatDate(reservation.dataSaida),
+      ].map(normalizeReservationSearch);
+      return terms.every((term) => fields.some((field) => field.includes(term)))
+        && (filters.view === "all" || (filters.view === "upcoming" ? endDate >= today : endDate < today))
+        && (!filters.from || reservation.dataEntrada >= filters.from)
+        && (!filters.to || reservation.dataEntrada <= filters.to)
+        && (!filters.reservationStatus || reservation.reservationStatus === filters.reservationStatus)
+        && (!filters.paymentStatus || reservation.paymentStatus === filters.paymentStatus);
+    }).sort((a, b) => compareReservationDates(a, b, filters.sort, today));
+    const pageSize = Number(filters.size);
+    const totalPages = Math.max(1, Math.ceil(results.length / pageSize));
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const start = (currentPage - 1) * pageSize;
     tableHost.replaceChildren(createReservationsTable({
-      reservations: filterValidReservations(reservations, clients),
+      reservations: results.slice(start, start + pageSize),
+      emptyMessage: validReservations.length ? "Nenhuma reserva encontrada para esses filtros." : "Nenhuma reserva cadastrada",
       clients,
       checklists,
       occurrences,
@@ -85,6 +118,12 @@ export function createReservationsPage() {
       onDelete: deleteReservation,
       onCheckout: openCheckoutModal,
     }));
+    listControls.update({
+      total: validReservations.length,
+      confirmed: validReservations.filter((r) => r.reservationStatus === "Confirmada").length,
+      upcoming: validReservations.filter((r) => (r.dataSaida || r.dataEntrada) >= today).length,
+      count: results.length, start, pageSize, currentPage, totalPages,
+    });
   }
 
   function openCreateModal() {
@@ -277,6 +316,124 @@ export function createReservationsPage() {
   }
 }
 
+function normalizeReservationSearch(value) {
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function getReservationToday() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function compareReservationDates(a, b, order, today) {
+  const dateA = a.dataEntrada || "9999-12-31";
+  const dateB = b.dataEntrada || "9999-12-31";
+  if (order !== "priority") {
+    return (order === "desc" ? -1 : 1) * dateA.localeCompare(dateB) || String(a.id).localeCompare(String(b.id));
+  }
+  const rank = (r) => r.dataEntrada <= today && (r.dataSaida || r.dataEntrada) >= today
+    ? 0 : r.dataEntrada >= today ? 1 : 2;
+  return rank(a) - rank(b)
+    || (rank(a) === 2 ? dateB.localeCompare(dateA) : dateA.localeCompare(dateB))
+    || String(a.id).localeCompare(String(b.id));
+}
+
+function createReservationListControls(onChange, onNavigate) {
+  const element = document.createElement("div");
+  const summary = document.createElement("div");
+  const toolbar = document.createElement("div");
+  const count = document.createElement("p");
+  const pagination = document.createElement("nav");
+  const range = document.createElement("p");
+  const navigation = document.createElement("div");
+  const previous = document.createElement("button");
+  const position = document.createElement("span");
+  const next = document.createElement("button");
+  const fields = {};
+  const metrics = ["Total de reservas", "Confirmadas", "Futuras ou em andamento"].map((text) => {
+    const item = document.createElement("div");
+    const label = document.createElement("span");
+    const value = document.createElement("strong");
+    label.textContent = text;
+    item.append(label, value);
+    summary.append(item);
+    return value;
+  });
+  element.className = "reservations-list";
+  summary.className = "reservations-list__summary";
+  toolbar.className = "reservations-list__toolbar";
+  function addField(key, text, type, options) {
+    const label = document.createElement("label");
+    const caption = document.createElement("span");
+    const input = document.createElement(options ? "select" : "input");
+    caption.textContent = text;
+    label.className = `reservations-list__field reservations-list__field--${key}`;
+    if (options) {
+      options.forEach(([value, title]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = title;
+        input.append(option);
+      });
+    } else {
+      input.type = type;
+    }
+    input.addEventListener(type === "search" ? "input" : "change", onChange);
+    fields[key] = input;
+    label.append(caption, input);
+    toolbar.append(label);
+    return input;
+  }
+  const search = addField("search", "Buscar reserva", "search");
+  search.placeholder = "Cliente, telefone ou data";
+  search.autocomplete = "off";
+  addField("view", "Reservas", "select", [["all", "Todas"], ["upcoming", "Próximas e em andamento"], ["past", "Passadas"]]);
+  addField("from", "Entrada a partir de", "date");
+  addField("to", "Entrada até", "date");
+  addField("reservationStatus", "Status da reserva", "select", [["", "Todos"], ...reservationStatusOptions.map((s) => [s, s])]);
+  addField("paymentStatus", "Status do pagamento", "select", [["", "Todos"], ...paymentStatusOptions.map((s) => [s, s])]);
+  addField("sort", "Ordenar por", "select", [["priority", "Em andamento e próximas"], ["asc", "Entrada: mais antiga primeiro"], ["desc", "Entrada: mais recente primeiro"]]);
+  addField("size", "Reservas por página", "select", [10, 25, 50].map((n) => [String(n), String(n)]));
+  const clear = document.createElement("button");
+  clear.type = "button";
+  clear.className = "button button--secondary";
+  clear.textContent = "Limpar filtros";
+  clear.addEventListener("click", () => {
+    Object.values(fields).forEach((input) => {
+      if (input.tagName === "SELECT") input.selectedIndex = 0;
+      else input.value = "";
+    });
+    onChange();
+  });
+  toolbar.append(clear);
+  count.className = "reservations-list__count";
+  count.setAttribute("role", "status");
+  pagination.className = "reservations-list__pagination";
+  pagination.setAttribute("aria-label", "Páginas de reservas");
+  navigation.className = "reservations-list__navigation";
+  previous.type = next.type = "button";
+  previous.className = next.className = "button button--secondary";
+  previous.textContent = "Anterior";
+  next.textContent = "Próximo";
+  previous.addEventListener("click", () => onNavigate(-1));
+  next.addEventListener("click", () => onNavigate(1));
+  navigation.append(previous, position, next);
+  pagination.append(range, navigation);
+  element.append(summary, toolbar, count);
+  return {
+    element, pagination,
+    values: () => Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value])),
+    update({ total, confirmed, upcoming, count: found, start, pageSize, currentPage, totalPages }) {
+      [total, confirmed, upcoming].forEach((value, index) => { metrics[index].textContent = String(value); });
+      count.textContent = `Reservas: ${total} · Encontradas: ${found}`;
+      range.textContent = found ? `Exibindo ${start + 1}–${Math.min(start + pageSize, found)} de ${found}` : "Exibindo 0 de 0";
+      position.textContent = `Página ${currentPage} de ${totalPages}`;
+      previous.disabled = currentPage === 1;
+      next.disabled = currentPage === totalPages;
+    },
+  };
+}
+
 function getStoredReservations() {
   return getReservations();
 }
@@ -289,7 +446,7 @@ function getStoredClients() {
   return getClients();
 }
 
-function createReservationsTable({ reservations, clients, checklists, occurrences, onEdit, onDelete, onCheckout }) {
+function createReservationsTable({ reservations, emptyMessage, clients, checklists, occurrences, onEdit, onDelete, onCheckout }) {
   const section = document.createElement("section");
   const wrapper = document.createElement("div");
   const table = document.createElement("table");
@@ -326,14 +483,15 @@ function createReservationsTable({ reservations, clients, checklists, occurrence
     const cell = document.createElement("td");
 
     cell.colSpan = headers.length;
-    cell.textContent = "Nenhuma reserva cadastrada";
+    cell.className = "reservations-table__empty";
+    cell.textContent = emptyMessage;
     row.append(cell);
     tbody.append(row);
   }
 
   reservations.forEach((reservation) => {
     const row = document.createElement("tr");
-    const remainingValue = calculateRemaining(reservation.totalValue, reservation.depositValue);
+    const remainingValue = reservation.remainingValue ?? calculateRemaining(reservation.totalValue, reservation.depositValue);
     const checkoutSummary = buildReservationCheckoutSummary(reservation, checklists, occurrences);
     const values = [
       formatDateTime(reservation.dataEntrada, reservation.horaEntrada),
@@ -350,8 +508,9 @@ function createReservationsTable({ reservations, clients, checklists, occurrence
 
     values.forEach((value, index) => {
       const td = document.createElement("td");
+      td.dataset.label = headers[index];
 
-      if (index === 8) {
+      if (index === 7 || index === 8) {
         td.append(createReservationStatusBadge(value));
         row.append(td);
         return;
@@ -368,6 +527,7 @@ function createReservationsTable({ reservations, clients, checklists, occurrence
     });
 
     const actions = document.createElement("td");
+    actions.className = "reservations-table__action-cell";
     const actionsGroup = document.createElement("div");
     const checkoutButton = document.createElement("button");
     const editButton = document.createElement("button");
