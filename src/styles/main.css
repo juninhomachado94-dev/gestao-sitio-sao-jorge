@@ -705,6 +705,103 @@ textarea:focus-visible {
   text-align: center;
 }
 
+.calendar-page .calendar-financial {
+  margin: 16px 0;
+  padding-block: 14px;
+  border-block: 1px solid var(--color-line);
+  color: var(--color-ink);
+  font-size: 0.88rem;
+}
+
+.calendar-page .calendar-financial__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.calendar-page .calendar-financial h5 {
+  margin: 0;
+  font-size: 0.94rem;
+}
+
+.calendar-page .calendar-financial__status {
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #f2f4f7;
+  color: #475467;
+  font-weight: 600;
+}
+
+.calendar-page .calendar-financial--quitado .calendar-financial__status {
+  background: #edf8f0;
+  color: #166534;
+}
+
+.calendar-page .calendar-financial--parcial .calendar-financial__status {
+  background: #fff8e5;
+  color: #854d0e;
+}
+
+.calendar-page .calendar-financial--pendente .calendar-financial__status {
+  background: #fff1f0;
+  color: #991b1b;
+}
+
+.calendar-page .calendar-financial dl {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.calendar-page .calendar-financial dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.calendar-page .calendar-financial dt {
+  flex: 1 1 140px;
+  color: var(--color-muted);
+}
+
+.calendar-page .calendar-financial dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.calendar-page .calendar-financial__balance {
+  padding-top: 10px;
+  border-top: 1px solid var(--color-line);
+}
+
+.calendar-page .calendar-financial__balance dd {
+  font-size: 1rem;
+}
+
+.calendar-page .calendar-financial progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--color-forest-700);
+}
+
+.calendar-page .calendar-financial__progress-label {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.calendar-page .calendar-financial__warning {
+  padding-left: 18px;
+  margin-bottom: 0;
+  color: #854d0e;
+  line-height: 1.5;
+  font-size: 0.82rem;
+}
+
 .clients-table__wrapper {
   width: 100%;
   overflow-x: auto;

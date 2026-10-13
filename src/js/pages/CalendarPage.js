@@ -1,5 +1,5 @@
 import { createStatusBadge, getStatusClass } from "../components/StatusBadge.js";
-import { getClients, getContracts, getReservations } from "../../services/dataService.js";
+import { getClients, getContracts, getFinance, getReservations } from "../../services/dataService.js";
 import { formatCurrency } from "../../services/privacyService.js";
 import { filterValidReservations } from "../../services/recordIntegrityService.js";
 
@@ -9,6 +9,7 @@ const weekdayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 export function createCalendarPage() {
   const today = new Date();
   const reservations = filterValidReservations(getStoredReservations(), getStoredClients());
+  const finance = getFinance();
   let currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   let selectedDateKey = toDateKey(today);
 
@@ -42,7 +43,7 @@ export function createCalendarPage() {
         render();
       },
     }));
-    detailsHost.replaceChildren(createDayDetails(selectedDateKey, getReservationsForDate(selectedDateKey)));
+    detailsHost.replaceChildren(createDayDetails(selectedDateKey, getReservationsForDate(selectedDateKey), finance));
   }
 
   function getReservationsForDate(dateKey) {
@@ -180,7 +181,7 @@ function createMonthGrid({ monthDate, selectedDateKey, reservationsByDate, onSel
   return fragment;
 }
 
-function createDayDetails(dateKey, reservations) {
+function createDayDetails(dateKey, reservations, finance) {
   const wrapper = document.createElement("div");
   const title = document.createElement("h3");
 
@@ -213,11 +214,128 @@ function createDayDetails(dateKey, reservations) {
     notes.className = "calendar-details__notes";
     notes.textContent = reservation.notes || "Sem observações.";
 
-    card.append(client, status, infoBlocks, timeline, notes);
+    card.append(client, status, infoBlocks, createFinancialSituation(reservation, finance), timeline, notes);
     wrapper.append(card);
   });
 
   return wrapper;
+}
+
+function getCalendarFinancialSituation(reservation, finance) {
+  const cents = (value) => {
+    if (value === null || value === undefined || String(value).trim() === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 && Number.isSafeInteger(Math.round(number * 100))
+      ? Math.round(number * 100) : null;
+  };
+  const normalize = (value) => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const total = cents(reservation.totalValue);
+  const deposit = cents(reservation.depositValue);
+  const remaining = cents(reservation.remainingValue);
+  const entries = (Array.isArray(finance?.revenues) ? finance.revenues : [])
+    .filter((entry) => (entry.reservationId ?? entry.reservation_id) === reservation.id);
+  const issues = [];
+  let paid = 0;
+  let pending = 0;
+  let signalPaid = 0;
+  let signalIdentified = false;
+  const ids = new Set();
+  for (const entry of entries) {
+    if (entry.id && ids.has(entry.id)) issues.push("Há identificadores repetidos nos lançamentos financeiros.");
+    ids.add(entry.id);
+    const value = cents(entry.value ?? entry.amount);
+    if (value === null) {
+      issues.push("Há lançamento financeiro com valor ausente ou inválido.");
+      continue;
+    }
+    const status = normalize(entry.status);
+    const confirmed = ["recebido", "pago"].includes(status);
+    if (confirmed) paid += value;
+    else if (status === "pendente") pending += value;
+    else issues.push("Há lançamento financeiro com situação não reconhecida.");
+    const isSignal = /-entrada$/.test(String(entry.id ?? "")) || /^(entrada|sinal)\b/.test(normalize(entry.description));
+    if (isSignal) {
+      signalIdentified = true;
+      if (confirmed) signalPaid += value;
+    }
+  }
+  if (total === null || total <= 0 || deposit === null || remaining === null) {
+    issues.push("A reserva não possui todos os valores necessários para conferir o pagamento.");
+  }
+  if (!entries.length) issues.push("Não há lançamentos financeiros vinculados disponíveis para confirmar o pagamento.");
+  if (total !== null && remaining !== null && entries.length) {
+    if (paid + pending !== total) issues.push("Total da reserva difere da soma dos lançamentos financeiros.");
+    if (remaining !== pending) issues.push("Restante salvo na reserva difere do saldo pendente no financeiro.");
+    if (paid > total || remaining > total || (deposit !== null && deposit > total)) issues.push("Há valor superior ao total da reserva.");
+  }
+  const paymentStatus = normalize(reservation.paymentStatus);
+  if (entries.length) {
+    if (paymentStatus === "pendente" && paid > 0) issues.push("Reserva indica pagamento pendente, mas o financeiro registra recebimento.");
+    else if (paymentStatus === "sinal pago" && (paid <= 0 || remaining === 0)) issues.push("Status de sinal pago não corresponde aos valores disponíveis.");
+    else if (paymentStatus === "pago completo" && (paid !== total || remaining !== 0)) issues.push("Status de pagamento completo não corresponde aos valores disponíveis.");
+    else if (!["pendente", "sinal pago", "pago completo"].includes(paymentStatus)) issues.push("Status de pagamento da reserva insuficiente para conferência.");
+    if (signalIdentified && deposit !== null && (signalPaid > 0 || paymentStatus !== "pendente") && signalPaid !== deposit) {
+      issues.push("Sinal salvo na reserva difere do sinal recebido no financeiro.");
+    }
+  }
+  const status = issues.length ? "Indeterminado" : paid === 0 ? "Pendente" : paid === total ? "Quitado" : "Parcial";
+  return { total, deposit, remaining, paid: entries.length ? paid : null, pending: entries.length ? pending : null,
+    signalPaid: signalIdentified ? signalPaid : null, status, issues: [...new Set(issues)],
+    progress: issues.length ? null : Math.round(paid / total * 100) };
+}
+
+function createFinancialSituation(reservation, finance) {
+  const data = getCalendarFinancialSituation(reservation, finance);
+  const section = document.createElement("section");
+  const header = document.createElement("div");
+  const title = document.createElement("h5");
+  const status = document.createElement("span");
+  const list = document.createElement("dl");
+  section.className = `calendar-financial calendar-financial--${data.status.toLowerCase()}`;
+  title.textContent = "Situação financeira";
+  status.className = "calendar-financial__status";
+  status.textContent = data.status;
+  header.className = "calendar-financial__header";
+  header.append(title, status);
+  const rows = [
+    ["Total salvo na reserva", data.total],
+    ["Sinal salvo na reserva", data.deposit],
+    ["Sinal recebido (financeiro)", data.signalPaid],
+    ["Recebido confirmado (financeiro)", data.paid],
+    ["Restante salvo na reserva", data.remaining],
+    ["Pendente no financeiro", data.pending],
+  ];
+  rows.forEach(([label, value], index) => {
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    const description = document.createElement("dd");
+    if (index === 4) row.className = "calendar-financial__balance";
+    term.textContent = label;
+    description.textContent = value === null ? "Não confirmado" : formatCurrency(value / 100);
+    row.append(term, description);
+    list.append(row);
+  });
+  section.append(header, list);
+  if (data.progress !== null) {
+    const progress = document.createElement("progress");
+    progress.max = 100;
+    progress.value = data.progress;
+    progress.setAttribute("aria-label", "Progresso dos pagamentos confirmados");
+    const text = document.createElement("p");
+    text.className = "calendar-financial__progress-label";
+    text.textContent = `${data.progress}% do total confirmado`;
+    section.append(progress, text);
+  } else {
+    const warning = document.createElement("ul");
+    warning.className = "calendar-financial__warning";
+    data.issues.forEach((issue) => {
+      const item = document.createElement("li");
+      item.textContent = issue;
+      warning.append(item);
+    });
+    section.append(warning);
+  }
+  return section;
 }
 
 function createReservationInfoBlocks(reservation) {
